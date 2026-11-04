@@ -1,0 +1,4 @@
+project_id = "peaoudxbyrbwmukedpmk"
+
+[functions.agent-api]
+verify_jwt = false
