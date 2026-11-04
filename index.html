@@ -1,0 +1,1226 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#f5f6f8" />
+    <title>Orbit — Projects</title>
+    <style>
+      :root {
+        --bg: #f5f6f8;
+        --surface: #fff;
+        --ink: #182231;
+        --muted: #7b8797;
+        --line: #e3e7ed;
+        --navy: #23324a;
+        --blue: #4f79c7;
+        --orange: #ed8d45;
+        --green: #47a77d;
+        --yellow: #dfad45;
+        --radius: 14px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          14px/1.55 Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Noto Sans JP",
+          sans-serif;
+      }
+      .app {
+        display: flex;
+        min-height: 100vh;
+      }
+      .sidebar {
+        width: 232px;
+        background: #fff;
+        border-right: 1px solid var(--line);
+        padding: 25px 15px;
+        display: flex;
+        flex-direction: column;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 10px 32px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        color: #243149;
+      }
+      .mark {
+        width: 25px;
+        height: 25px;
+        border: 3px solid var(--orange);
+        border-radius: 7px;
+        position: relative;
+        transform: rotate(-8deg);
+      }
+      .mark:after {
+        content: "";
+        position: absolute;
+        width: 7px;
+        height: 7px;
+        background: var(--blue);
+        border-radius: 50%;
+        right: -5px;
+        top: -5px;
+      }
+      .nav {
+        display: grid;
+        gap: 4px;
+      }
+      .nav button {
+        border: 0;
+        background: none;
+        text-align: left;
+        color: #7d8998;
+        padding: 10px 12px;
+        border-radius: 9px;
+        display: flex;
+        gap: 11px;
+        align-items: center;
+      }
+      .nav button:hover,
+      .nav button.active {
+        background: #eef2f7;
+        color: var(--navy);
+        font-weight: 700;
+      }
+      .nav svg {
+        width: 17px;
+        height: 17px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 1.8;
+      }
+      .nav-title {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #a8b1bd;
+        margin: 26px 12px 5px;
+      }
+      .side-note {
+        margin-top: auto;
+        border-top: 1px solid var(--line);
+        padding: 16px 10px 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .profile {
+        display: flex;
+        gap: 9px;
+        align-items: center;
+      }
+      .avatar {
+        width: 29px;
+        height: 29px;
+        border-radius: 8px;
+        background: #dfe8f8;
+        color: #3f649f;
+        display: grid;
+        place-items: center;
+        font-size: 12px;
+        font-weight: 800;
+      }
+      .main {
+        flex: 1;
+        min-width: 0;
+      }
+      .topbar {
+        height: 66px;
+        background: #fff;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 4.5vw;
+      }
+      .crumb {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .crumb b {
+        color: var(--ink);
+      }
+      .top-actions {
+        display: flex;
+        gap: 9px;
+      }
+      .top-btn {
+        border: 1px solid var(--line);
+        background: #fff;
+        color: var(--muted);
+        border-radius: 8px;
+        padding: 8px 11px;
+      }
+      .primary {
+        border: 0;
+        background: var(--navy);
+        color: #fff;
+        border-radius: 8px;
+        padding: 9px 14px;
+        font-weight: 700;
+      }
+      .content {
+        max-width: 1180px;
+        margin: auto;
+        padding: 38px 4.5vw 70px;
+      }
+      .hero {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 20px;
+        margin-bottom: 28px;
+      }
+      .kicker {
+        color: var(--orange);
+        font-weight: 800;
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .hero h1 {
+        font-size: 30px;
+        letter-spacing: -0.03em;
+        margin: 6px 0;
+      }
+      .hero p {
+        margin: 0;
+        color: var(--muted);
+      }
+      .view {
+        display: none;
+      }
+      .view.active {
+        display: block;
+      }
+      .filters {
+        display: flex;
+        gap: 7px;
+        margin-bottom: 17px;
+        flex-wrap: wrap;
+      }
+      .filter {
+        border: 1px solid var(--line);
+        background: #fff;
+        color: var(--muted);
+        padding: 7px 11px;
+        border-radius: 99px;
+        font-size: 12px;
+      }
+      .filter.active {
+        background: var(--navy);
+        border-color: var(--navy);
+        color: white;
+      }
+      .projects {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 15px;
+      }
+      .project-card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 18px;
+        cursor: pointer;
+        transition: 0.18s;
+        box-shadow: 0 2px 5px #26385406;
+      }
+      .project-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 24px #26385413;
+        border-color: #cbd5e2;
+      }
+      .project-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 18px;
+      }
+      .project-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+      }
+      .project-icon svg {
+        width: 20px;
+        height: 20px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 1.8;
+      }
+      .blue {
+        background: #668bd2;
+      }
+      .orange {
+        background: #e59b58;
+      }
+      .green {
+        background: #5bb08b;
+      }
+      .purple {
+        background: #8f82c7;
+      }
+      .status {
+        font-size: 11px;
+        border-radius: 99px;
+        padding: 4px 8px;
+      }
+      .status.active {
+        color: #338160;
+        background: #e7f5ef;
+      }
+      .status.planning {
+        color: #9a711e;
+        background: #fff5dc;
+      }
+      .status.hold {
+        color: #788495;
+        background: #eef1f4;
+      }
+      .project-card h2 {
+        font-size: 16px;
+        margin: 0 0 6px;
+      }
+      .project-card p {
+        height: 44px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+        overflow: hidden;
+      }
+      .meta {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 17px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .meter {
+        height: 5px;
+        border-radius: 9px;
+        background: #edf0f4;
+        margin-top: 9px;
+        overflow: hidden;
+      }
+      .meter i {
+        display: block;
+        height: 100%;
+        border-radius: 9px;
+        background: var(--blue);
+      }
+      .project-card.featured {
+        grid-column: span 2;
+      }
+      .project-card.featured h2 {
+        font-size: 18px;
+      }
+      .project-card.featured p {
+        height: auto;
+        max-width: 540px;
+      }
+      .featured-body {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        align-items: end;
+      }
+      .featured-progress {
+        min-width: 130px;
+      }
+      .featured-progress b {
+        font-size: 25px;
+        color: var(--navy);
+      }
+      .empty-card {
+        border: 1px dashed #cbd4df;
+        border-radius: var(--radius);
+        display: grid;
+        place-items: center;
+        min-height: 210px;
+        color: var(--muted);
+        background: #fafbfc;
+      }
+      .empty-card button {
+        border: 0;
+        background: none;
+        color: var(--blue);
+        font-weight: 700;
+      }
+      .detail-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 27px;
+      }
+      .back {
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 8px;
+        padding: 7px 10px;
+        color: var(--muted);
+      }
+      .detail-title h1 {
+        font-size: 28px;
+        margin: 0;
+      }
+      .detail-title p {
+        color: var(--muted);
+        margin: 3px 0 0;
+      }
+      .detail-grid {
+        display: grid;
+        grid-template-columns: 1.3fr 0.7fr;
+        gap: 16px;
+      }
+      .panel {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 20px;
+      }
+      .panel h2 {
+        font-size: 15px;
+        margin: 0 0 17px;
+      }
+      .big-progress {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+      }
+      .big-progress b {
+        font-size: 38px;
+        letter-spacing: -0.05em;
+      }
+      .big-progress span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .large-meter {
+        height: 10px;
+        background: #e9edf2;
+        border-radius: 9px;
+        margin: 12px 0 25px;
+        overflow: hidden;
+      }
+      .large-meter i {
+        display: block;
+        height: 100%;
+        background: var(--blue);
+        border-radius: 9px;
+      }
+      .task {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding: 11px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .task:last-child {
+        border-bottom: 0;
+      }
+      .task-check {
+        width: 17px;
+        height: 17px;
+        border: 1px solid #bdc8d5;
+        border-radius: 5px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-size: 11px;
+        flex: none;
+      }
+      .task.done {
+        color: #9aa5b3;
+        text-decoration: line-through;
+      }
+      .task.done .task-check {
+        background: var(--green);
+        border-color: var(--green);
+      }
+      .task small {
+        margin-left: auto;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .activity {
+        display: grid;
+        gap: 15px;
+      }
+      .activity-row {
+        display: flex;
+        gap: 10px;
+      }
+      .activity-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--orange);
+        margin-top: 7px;
+        flex: none;
+      }
+      .activity-row p {
+        margin: 0;
+        font-size: 12px;
+      }
+      .activity-row small {
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .side-stat {
+        display: flex;
+        justify-content: space-between;
+        padding: 11px 0;
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+      }
+      .side-stat b {
+        color: var(--ink);
+      }
+      .table-list {
+        display: grid;
+        gap: 9px;
+      }
+      .list-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        padding: 14px 16px;
+        cursor: pointer;
+      }
+      .list-row:hover {
+        border-color: #b9c6d7;
+      }
+      .list-left {
+        display: flex;
+        gap: 11px;
+        align-items: center;
+      }
+      .list-left h3 {
+        margin: 0;
+        font-size: 14px;
+      }
+      .list-left small {
+        display: block;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+      .modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: #18223155;
+        place-items: center;
+        padding: 20px;
+        z-index: 4;
+      }
+      .modal.show {
+        display: grid;
+      }
+      .modal-box {
+        background: #fff;
+        border-radius: 16px;
+        padding: 23px;
+        width: min(450px, 100%);
+        box-shadow: 0 20px 60px #18223133;
+      }
+      .modal-box h2 {
+        margin: 0 0 4px;
+      }
+      .modal-box p {
+        color: var(--muted);
+        margin: 0 0 18px;
+      }
+      .modal-box label {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        margin: 13px 0 5px;
+      }
+      .modal-box input {
+        width: 100%;
+        border: 1px solid var(--line);
+        padding: 10px;
+        border-radius: 8px;
+        font: inherit;
+      }
+      .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 20px;
+      }
+      .ghost {
+        border: 1px solid var(--line);
+        background: #fff;
+        padding: 9px 13px;
+        border-radius: 8px;
+        color: var(--muted);
+      }
+      .toast {
+        position: fixed;
+        right: 22px;
+        bottom: 22px;
+        background: var(--navy);
+        color: #fff;
+        padding: 11px 15px;
+        border-radius: 9px;
+        transform: translateY(90px);
+        transition: 0.2s;
+      }
+      .toast.show {
+        transform: none;
+      }
+      @media (max-width: 900px) {
+        .projects {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .project-card.featured {
+          grid-column: span 2;
+        }
+        .detail-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (max-width: 620px) {
+        .sidebar {
+          display: none;
+        }
+        .content {
+          padding: 27px 18px;
+        }
+        .topbar {
+          padding: 0 18px;
+        }
+        .hero {
+          display: block;
+        }
+        .hero .primary {
+          margin-top: 18px;
+        }
+        .projects {
+          grid-template-columns: 1fr;
+        }
+        .project-card.featured {
+          grid-column: span 1;
+        }
+        .featured-body {
+          display: block;
+        }
+        .featured-progress {
+          margin-top: 18px;
+        }
+      }
+      #authGate {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: var(--bg);
+      }
+      #authGate .auth-card {
+        width: min(420px, 100%);
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 32px;
+        box-shadow: 0 16px 45px #26385412;
+        text-align: center;
+      }
+      #authGate .auth-mark {
+        margin: 0 auto 18px;
+        width: 42px;
+        height: 42px;
+        border: 4px solid var(--orange);
+        border-radius: 12px;
+        position: relative;
+        transform: rotate(-8deg);
+      }
+      #authGate .auth-mark:after {
+        content: "";
+        position: absolute;
+        width: 11px;
+        height: 11px;
+        background: var(--blue);
+        border-radius: 50%;
+        right: -7px;
+        top: -7px;
+      }
+      #authGate h1 {
+        font-size: 26px;
+        margin: 0 0 8px;
+        color: var(--navy);
+      }
+      #authGate p {
+        color: var(--muted);
+        margin: 0 0 22px;
+      }
+      #googleButton {
+        display: flex;
+        justify-content: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="authGate">
+      <div class="auth-card">
+        <div class="auth-mark"></div>
+        <h1>Orbit</h1>
+        <p>プロジェクトとTODOを、自分のワークスペースで管理する。</p>
+        <div id="gateGoogleButton"></div>
+        <small style="display: block; color: var(--muted); margin-top: 16px"
+          >Googleアカウントでログインしてください</small
+        >
+      </div>
+    </div>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand"><i class="mark"></i>ORBIT</div>
+        <nav class="nav">
+          <button class="active" data-view="projects">
+            <svg viewBox="0 0 24 24">
+              <rect x="3" y="4" width="7" height="7" rx="1" />
+              <rect x="14" y="4" width="7" height="7" rx="1" />
+              <rect x="3" y="14" width="7" height="7" rx="1" />
+              <rect x="14" y="14" width="7" height="7" rx="1" /></svg
+            >プロジェクト</button
+          ><button data-view="goals">
+            <svg viewBox="0 0 24 24">
+              <path d="M4 19 19 4M8 4h11v11M4 9V4h5" /></svg
+            >やりたいこと
+          </button>
+          <div class="nav-title">Workspace</div>
+          <button data-view="activity">
+            <svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h10" /></svg
+            >活動ログ</button
+          ><button data-view="settings">
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"
+              />
+              <circle cx="12" cy="12" r="3" /></svg
+            >設定
+          </button>
+        </nav>
+        <div class="side-note">
+          <div class="profile">
+            <div class="avatar">G</div>
+            <span>Genki<br /><small>Personal workspace</small></span>
+          </div>
+        </div>
+      </aside>
+      <main class="main">
+        <header class="topbar">
+          <div class="crumb">Workspace / <b id="crumb">プロジェクト</b></div>
+          <div class="top-actions">
+            <button class="top-btn">⌕</button
+            ><button class="primary" id="addBtn">＋ 新しいプロジェクト</button>
+          </div>
+        </header>
+        <div class="content">
+          <section class="view active" id="projects">
+            <div class="hero">
+              <div>
+                <div class="kicker">Project desk</div>
+                <h1>プロジェクト</h1>
+                <p>今やっていることを、ひとつずつ前へ。</p>
+              </div>
+            </div>
+            <div class="filters">
+              <button class="filter active">すべて 4</button
+              ><button class="filter">進行中 2</button
+              ><button class="filter">計画中 1</button
+              ><button class="filter">保留 1</button>
+            </div>
+            <div class="projects">
+              <article class="project-card featured" data-project="orbit">
+                <div class="project-top">
+                  <div class="project-icon blue">
+                    <svg viewBox="0 0 24 24">
+                      <path d="M5 19V5h14v14H5Z" />
+                      <path d="m8 15 3-3 2 2 3-4" />
+                    </svg>
+                  </div>
+                  <span class="status active">進行中</span>
+                </div>
+                <div class="featured-body">
+                  <div>
+                    <h2>Orbit MVP</h2>
+                    <p>
+                      やりたいことと、今やっていることをつなぐ個人用プロジェクト管理ツール。
+                    </p>
+                  </div>
+                  <div class="featured-progress">
+                    <b>68%</b>
+                    <div class="meter"><i style="width: 68%"></i></div>
+                  </div>
+                </div>
+                <div class="meta">
+                  <span>更新 12分前</span><span>タスク 4 / 7</span>
+                </div>
+              </article>
+              <article class="project-card">
+                <div class="project-top">
+                  <div class="project-icon orange">
+                    <svg viewBox="0 0 24 24">
+                      <rect x="3" y="5" width="18" height="14" rx="2" />
+                      <path d="m4 7 8 6 8-6" />
+                    </svg>
+                  </div>
+                  <span class="status planning">探索中</span>
+                </div>
+                <h2>AIエージェント向けメール基盤</h2>
+                <p>AIが自分のメールアドレスを持ち、通信するための仕組み。</p>
+                <div class="meta"><span>更新 昨日</span><span>24%</span></div>
+                <div class="meter">
+                  <i style="width: 24%; background: var(--orange)"></i>
+                </div>
+              </article>
+              <article class="project-card">
+                <div class="project-top">
+                  <div class="project-icon green">
+                    <svg viewBox="0 0 24 24">
+                      <rect x="4" y="4" width="16" height="6" rx="1" />
+                      <rect x="4" y="14" width="16" height="6" rx="1" />
+                      <path d="M7 7h.01M7 17h.01" />
+                    </svg>
+                  </div>
+                  <span class="status planning">計画中</span>
+                </div>
+                <h2>宅内サーバー環境</h2>
+                <p>24時間稼働するMinecraft・ローカルLLM用のマシンを作る。</p>
+                <div class="meta">
+                  <span>更新 11月4日</span><span>12%</span>
+                </div>
+                <div class="meter">
+                  <i style="width: 12%; background: var(--green)"></i>
+                </div>
+              </article>
+              <article class="project-card">
+                <div class="project-top">
+                  <div class="project-icon purple">
+                    <svg viewBox="0 0 24 24">
+                      <path
+                        d="M7 9h10a5 5 0 0 1 4 8l-2 2-4-4H9l-4 4-2-2a5 5 0 0 1 4-8Z"
+                      />
+                      <path d="M8 12v4m-2-2h4m7-1h.01m2 2h.01" />
+                    </svg>
+                  </div>
+                  <span class="status hold">保留</span>
+                </div>
+                <h2>みんなで遊べるゲーム</h2>
+                <p>ゲーム、視聴、雑談が同じ世界にある身内向けの場所。</p>
+                <div class="meta"><span>更新 11月2日</span><span>8%</span></div>
+                <div class="meter">
+                  <i style="width: 8%; background: var(--purple)"></i>
+                </div>
+              </article>
+              <article class="empty-card">
+                <button id="emptyAdd">＋ プロジェクトを追加</button>
+              </article>
+            </div>
+          </section>
+          <section class="view" id="detail">
+            <div class="detail-head">
+              <button class="back" id="back">← 一覧</button>
+              <div class="detail-title">
+                <h1>Orbit MVP</h1>
+                <p>やりたいことと、今やっていることをつなぐ。</p>
+              </div>
+            </div>
+            <div class="detail-grid">
+              <article class="panel">
+                <div
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    gap: 10px;
+                  "
+                >
+                  <h2 style="margin-bottom: 0">現在の進捗</h2>
+                  <button
+                    class="primary"
+                    id="addTodo"
+                    style="padding: 7px 10px; font-size: 12px"
+                  >
+                    ＋ TODO
+                  </button>
+                </div>
+                <div class="big-progress" style="margin-top: 18px">
+                  <b id="progressNumber">68%</b><span>最終更新 12分前</span>
+                </div>
+                <div class="large-meter">
+                  <i id="progressBar" style="width: 68%"></i>
+                </div>
+                <h2>TODO</h2>
+                <div id="todoList">
+                  <div class="task done">
+                    <button class="task-check todo-toggle">✓</button
+                    ><span>Today画面の基本レイアウト</span><small>完了</small>
+                  </div>
+                  <div class="task done">
+                    <button class="task-check todo-toggle">✓</button
+                    ><span>プロジェクト構造を決める</span><small>完了</small>
+                  </div>
+                  <div class="task">
+                    <button class="task-check todo-toggle"></button
+                    ><span>ログインと個人データ分離</span><small>次</small>
+                  </div>
+                  <div class="task">
+                    <button class="task-check todo-toggle"></button
+                    ><span>Agent APIを接続する</span><small>未着手</small>
+                  </div>
+                </div>
+              </article>
+              <aside class="panel">
+                <h2>プロジェクト情報</h2>
+                <div class="side-stat">
+                  <span>ステータス</span><b>進行中</b>
+                </div>
+                <div class="side-stat">
+                  <span>タスク</span><b id="todoCount">4 / 7</b>
+                </div>
+                <div class="side-stat">
+                  <span>開始日</span><b>2026年11月1日</b>
+                </div>
+                <h2 style="margin-top: 25px">最近の活動</h2>
+                <div class="activity">
+                  <div class="activity-row">
+                    <i class="activity-dot"></i>
+                    <div>
+                      <p>API設計のタスクを追加</p>
+                      <small>Claude Code · 2時間前</small>
+                    </div>
+                  </div>
+                  <div class="activity-row">
+                    <i
+                      class="activity-dot"
+                      style="background: var(--green)"
+                    ></i>
+                    <div>
+                      <p>画面レイアウトを完了</p>
+                      <small>あなた · 昨日</small>
+                    </div>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </section>
+          <section class="view" id="goals">
+            <div class="hero">
+              <div>
+                <div class="kicker">North star</div>
+                <h1>やりたいこと</h1>
+                <p>いつかやりたいことをプロジェクトに変える。</p>
+              </div>
+            </div>
+            <div class="table-list">
+              <div class="list-row">
+                <div class="list-left">
+                  <div
+                    class="project-icon orange"
+                    style="width: 34px; height: 34px"
+                  >
+                    <span>↗</span>
+                  </div>
+                  <div>
+                    <h3>AIに自分のメールアドレスを持たせる</h3>
+                    <small
+                      >関連プロジェクト: AIエージェント向けメール基盤</small
+                    >
+                  </div>
+                </div>
+                <span class="status planning">探索中</span>
+              </div>
+              <div class="list-row">
+                <div class="list-left">
+                  <div
+                    class="project-icon purple"
+                    style="width: 34px; height: 34px"
+                  >
+                    <span>✦</span>
+                  </div>
+                  <div>
+                    <h3>みんなで遊べる終わりのないゲーム</h3>
+                    <small>関連プロジェクト: みんなで遊べるゲーム</small>
+                  </div>
+                </div>
+                <span class="status hold">保留</span>
+              </div>
+            </div>
+          </section>
+          <section class="view" id="activity">
+            <div class="hero">
+              <div>
+                <div class="kicker">Timeline</div>
+                <h1>活動ログ</h1>
+                <p>プロジェクトの変化をあとから振り返る。</p>
+              </div>
+            </div>
+            <article class="panel">
+              <div class="activity">
+                <div class="activity-row">
+                  <i class="activity-dot"></i>
+                  <div>
+                    <p><b>Claude Code</b> が Orbit MVP にタスクを追加</p>
+                    <small>2時間前</small>
+                  </div>
+                </div>
+                <div class="activity-row">
+                  <i class="activity-dot" style="background: var(--blue)"></i>
+                  <div>
+                    <p><b>あなた</b> が Orbit MVP の進捗を68%に更新</p>
+                    <small>5時間前</small>
+                  </div>
+                </div>
+                <div class="activity-row">
+                  <i class="activity-dot" style="background: var(--green)"></i>
+                  <div>
+                    <p><b>あなた</b> が「プロジェクト構造を決める」を完了</p>
+                    <small>昨日</small>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </section>
+          <section class="view" id="settings">
+            <div class="hero">
+              <div>
+                <div class="kicker">Workspace</div>
+                <h1>設定</h1>
+                <p>個人ワークスペースの設定。</p>
+              </div>
+            </div>
+            <article class="panel">
+              <h2>AIエージェント連携</h2>
+              <p style="color: var(--muted)">
+                API連携はプロジェクト詳細から段階的に追加予定です。
+              </p>
+              <button class="primary">API設定を開く</button>
+            </article>
+          </section>
+        </div>
+      </main>
+    </div>
+    <div class="modal" id="modal">
+      <div class="modal-box">
+        <h2>新しいプロジェクト</h2>
+        <p>進めたいテーマを、まずは名前にする。</p>
+        <label>プロジェクト名</label
+        ><input
+          id="projectInput"
+          placeholder="例：自分のサービスを作る"
+        /><label>説明（任意）</label><input placeholder="何を実現したいか" />
+        <div class="modal-actions">
+          <button class="ghost" id="cancel">キャンセル</button
+          ><button class="primary" id="save">追加する</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal" id="todoModal">
+      <div class="modal-box">
+        <h2>TODOを追加</h2>
+        <p>このプロジェクトで次に進めることを登録する。</p>
+        <label>TODO</label
+        ><input id="todoInput" placeholder="例：認証方式を決める" />
+        <div class="modal-actions">
+          <button class="ghost" id="todoCancel">キャンセル</button
+          ><button class="primary" id="todoSave">追加する</button>
+        </div>
+      </div>
+    </div>
+    <div class="toast" id="toast">プロジェクトを追加しました</div>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+      const SUPABASE_URL = "https://peaoudxbyrbwmukedpmk.supabase.co",
+        SUPABASE_KEY = "sb_publishable_DQduXpWOwGrA51LF5VMuBw_kftOIEVx",
+        GOOGLE_CLIENT_ID =
+          "307507095397-fqi8p9o7n79ugemngtolemktj5e054l5.apps.googleusercontent.com";
+      const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      const labels = {
+        projects: "プロジェクト",
+        goals: "やりたいこと",
+        activity: "活動ログ",
+        settings: "設定",
+      };
+      const views = [...document.querySelectorAll(".view")];
+      let currentUser = null;
+      let todos = [
+        { title: "Today画面の基本レイアウト", done: true },
+        { title: "プロジェクト構造を決める", done: true },
+        { title: "ログインと個人データ分離", done: false },
+        { title: "Agent APIを接続する", done: false },
+      ];
+      function show(id) {
+        views.forEach((v) => v.classList.toggle("active", v.id === id));
+        document
+          .querySelectorAll(".nav button")
+          .forEach((b) => b.classList.toggle("active", b.dataset.view === id));
+        document.getElementById("crumb").textContent =
+          labels[id] || "プロジェクト";
+        history.replaceState(null, "", "#" + id);
+      }
+      document
+        .querySelectorAll("[data-view]")
+        .forEach((b) => (b.onclick = () => show(b.dataset.view)));
+      document.querySelector(".project-card.featured").onclick = () =>
+        show("detail");
+      document.getElementById("back").onclick = () => show("projects");
+      const modal = document.getElementById("modal");
+      document.getElementById("addBtn").onclick = () =>
+        modal.classList.add("show");
+      document.getElementById("emptyAdd").onclick = () =>
+        modal.classList.add("show");
+      document.getElementById("cancel").onclick = () =>
+        modal.classList.remove("show");
+      document.getElementById("save").onclick = () => {
+        modal.classList.remove("show");
+        toast("プロジェクトを追加しました");
+      };
+      const todoModal = document.getElementById("todoModal"),
+        todoInput = document.getElementById("todoInput"),
+        todoList = document.getElementById("todoList");
+      document.getElementById("addTodo").onclick = () => {
+        todoModal.classList.add("show");
+        todoInput.focus();
+      };
+      document.getElementById("todoCancel").onclick = () =>
+        todoModal.classList.remove("show");
+      document.getElementById("todoSave").onclick = () => {
+        const title = todoInput.value.trim();
+        if (!title) return;
+        todos.push({ title, done: false });
+        todoInput.value = "";
+        todoModal.classList.remove("show");
+        renderTodos();
+        saveTodos();
+        toast("TODOを追加しました");
+      };
+      function renderTodos() {
+        todoList.innerHTML = "";
+        todos.forEach((item, index) => {
+          const row = document.createElement("div");
+          row.className = "task" + (item.done ? " done" : "");
+          const button = document.createElement("button");
+          button.className = "task-check todo-toggle";
+          button.textContent = item.done ? "✓" : "";
+          button.onclick = () => {
+            todos[index].done = !todos[index].done;
+            renderTodos();
+            saveTodos();
+          };
+          const text = document.createElement("span");
+          text.textContent = item.title;
+          const meta = document.createElement("small");
+          meta.textContent = item.done ? "完了" : "未着手";
+          row.append(button, text, meta);
+          todoList.appendChild(row);
+        });
+        updateTodoCount();
+      }
+      function updateTodoCount() {
+        const all = todos.length,
+          done = todos.filter((x) => x.done).length;
+        document.getElementById("todoCount").textContent = done + " / " + all;
+        const pct = all ? Math.round((done / all) * 100) : 0;
+        document.getElementById("progressNumber").textContent = pct + "%";
+        document.getElementById("progressBar").style.width = pct + "%";
+      }
+      async function saveTodos() {
+        localStorage.setItem("orbit_todos", JSON.stringify(todos));
+        if (currentUser)
+          await db.auth.updateUser({ data: { orbit_todos: todos } });
+      }
+      async function loadTodos() {
+        const { data } = await db.auth.getUser();
+        currentUser = data.user;
+        if (currentUser?.user_metadata?.orbit_todos)
+          todos = currentUser.user_metadata.orbit_todos;
+        renderTodos();
+        updateAuthUI();
+        document.getElementById("authGate").style.display = currentUser
+          ? "none"
+          : "grid";
+        document.querySelector(".app").style.display = currentUser
+          ? "flex"
+          : "none";
+      }
+      function toast(message) {
+        const t = document.getElementById("toast");
+        t.textContent = message;
+        t.classList.add("show");
+        setTimeout(() => t.classList.remove("show"), 2000);
+      }
+      function updateAuthUI() {
+        const host = document.querySelector(".top-actions");
+        const gateButton = document.getElementById("gateGoogleButton");
+        if (!currentUser && gateButton && !gateButton.dataset.bound) {
+          const button = document.createElement("button");
+          button.className = "primary";
+          button.style = "min-width:220px;padding:11px 18px";
+          button.textContent = "Googleでログイン";
+          button.onclick = signInWithGoogle;
+          gateButton.appendChild(button);
+          gateButton.dataset.bound = "true";
+        }
+        if (document.getElementById("googleAuth")) return;
+        const area = document.createElement("div");
+        area.id = "googleAuth";
+        area.style = "display:flex;align-items:center;gap:8px";
+        host.prepend(area);
+        if (currentUser) {
+          const name = document.createElement("span");
+          name.style = "font-size:12px;color:var(--muted)";
+          name.textContent = currentUser.email || "Googleでログイン中";
+          const out = document.createElement("button");
+          out.className = "top-btn";
+          out.textContent = "ログアウト";
+          out.onclick = async () => {
+            await db.auth.signOut();
+            location.reload();
+          };
+          area.append(name, out);
+        } else {
+          const button = document.createElement("button");
+          button.className = "top-btn";
+          button.textContent = "Googleでログイン";
+          button.onclick = signInWithGoogle;
+          area.appendChild(button);
+        }
+      }
+      async function signInWithGoogle() {
+        const { error } = await db.auth.signInWithOAuth({
+          provider: "google",
+          options: { redirectTo: window.location.origin },
+        });
+        if (error) toast("Googleログイン設定を確認してください");
+      }
+      async function bootAuth() {
+        await loadTodos();
+      }
+      renderTodos();
+      bootAuth();
+      if (location.hash && labels[location.hash.slice(1)])
+        show(location.hash.slice(1));
+    </script>
+  </body>
+</html>
