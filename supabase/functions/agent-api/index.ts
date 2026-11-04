@@ -132,6 +132,33 @@ Deno.serve(async (req) => {
     return json(activityError ? { ...data, activity_log_warning: activityError } : data, 201);
   }
 
+  if (req.method === "GET" && parts.length === 4 && parts[1] === "todos" && parts[3] === "links") {
+    const { data: todo } = await supabase.from("todos").select("id").eq("id", parts[2]).eq("project_id", projectId).eq("owner_id", token.owner_id).maybeSingle();
+    if (!todo) return json({ error: "todo_not_found" }, 404);
+    const { data, error } = await supabase.from("todo_external_links").select("*").eq("todo_id", parts[2]).eq("project_id", projectId).eq("owner_id", token.owner_id).order("updated_at", { ascending: false });
+    if (error) return json({ error: error.message }, 400);
+    return json({ links: data ?? [] });
+  }
+
+  if (req.method === "POST" && parts.length === 4 && parts[1] === "todos" && parts[3] === "links") {
+    const { data: todo } = await supabase.from("todos").select("id,title").eq("id", parts[2]).eq("project_id", projectId).eq("owner_id", token.owner_id).maybeSingle();
+    if (!todo) return json({ error: "todo_not_found" }, 404);
+    const parsed = await readJson(req);
+    if (parsed.error) return parsed.error;
+    const body = parsed.body!;
+    if (body.provider !== "github" || typeof body.url !== "string") return json({ error: "invalid_github_link" }, 400);
+    let parsedUrl: URL;
+    try { parsedUrl = new URL(body.url); } catch { return json({ error: "invalid_url" }, 400); }
+    const match = parsedUrl.pathname.match(/^\/([^/]+)\/([^/]+)\/issues\/(\d+)/);
+    if (parsedUrl.hostname !== "github.com" || !match) return json({ error: "invalid_github_issue_url" }, 400);
+    const externalId = `${match[1]}/${match[2]}#${match[3]}`;
+    const canonicalUrl = `https://github.com/${match[1]}/${match[2]}/issues/${match[3]}`;
+    const { data, error } = await supabase.from("todo_external_links").upsert({ todo_id: parts[2], project_id: projectId, owner_id: token.owner_id, provider: "github", external_id: externalId, url: canonicalUrl, metadata: {} }, { onConflict: "todo_id,provider,external_id" }).select().single();
+    if (error) return json({ error: error.message }, 400);
+    const activityError = await writeActivity(projectId, token.owner_id, "todo.issue_linked", `TODO「${todo.title}」にGitHub Issueを連携`, { todo_id: todo.id, provider: "github", external_id: externalId, source: "agent-api" });
+    return json(activityError ? { ...data, activity_log_warning: activityError } : data, 201);
+  }
+
   if (req.method === "POST" && parts.length === 2 && parts[1] === "todos") {
     const project = await getOwnedProject(projectId, token.owner_id);
     if (project.error || !project.data) return json({ error: "project_not_found" }, 404);
