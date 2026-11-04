@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
   if (token.project_id && token.project_id !== projectId) return json({ error: "project_forbidden" }, 403);
   if (!token.scopes.includes(req.method === "GET" ? "read" : "write")) return json({ error: "scope_forbidden" }, 403);
 
-  if (req.method === "GET" && parts.length === 2) {
+  if (req.method === "GET" && parts.length === 1) {
     const [project, todos, activity] = await Promise.all([
       supabase.from("projects").select("*").eq("id", projectId).eq("owner_id", token.owner_id).single(),
       supabase.from("todos").select("*").eq("project_id", projectId).eq("owner_id", token.owner_id).order("updated_at", { ascending: false }),
@@ -66,21 +66,21 @@ Deno.serve(async (req) => {
     return json({ project: project.data, todos: todos.data ?? [], activity: activity.data ?? [] });
   }
 
-  if (req.method === "POST" && parts[2] === "todos") {
+  if (req.method === "POST" && parts[1] === "todos") {
     const body = await req.json();
     const { data, error } = await supabase.from("todos").insert({ project_id: projectId, owner_id: token.owner_id, title: body.title, description: body.description ?? "", priority: body.priority ?? "normal", created_by: body.created_by ?? "api" }).select().single();
     if (error) return json({ error: error.message }, 400);
     return json(data, 201);
   }
 
-  if (req.method === "PATCH" && parts[2] === "todos" && parts[3]) {
+  if (req.method === "PATCH" && parts[1] === "todos" && parts[2]) {
     const body = await req.json();
-    const { data, error } = await supabase.from("todos").update(body).eq("id", parts[3]).eq("owner_id", token.owner_id).select().single();
+    const { data, error } = await supabase.from("todos").update(body).eq("id", parts[2]).eq("owner_id", token.owner_id).select().single();
     if (error) return json({ error: error.message }, 400);
     return json(data);
   }
 
-  if (req.method === "PATCH" && parts.length === 2) {
+  if (req.method === "PATCH" && parts.length === 1) {
     const body = await req.json();
     const { data, error } = await supabase.from("projects").update(body).eq("id", projectId).eq("owner_id", token.owner_id).select().single();
     if (error) return json({ error: error.message }, 400);
