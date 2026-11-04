@@ -1164,6 +1164,7 @@
           todos = currentUser.user_metadata.orbit_todos;
         renderTodos();
         updateAuthUI();
+        loadActivity();
         document.getElementById("authGate").style.display = currentUser
           ? "none"
           : "grid";
@@ -1176,6 +1177,29 @@
         t.textContent = message;
         t.classList.add("show");
         setTimeout(() => t.classList.remove("show"), 2000);
+      }
+      async function loadActivity() {
+        if (!currentUser) return;
+        const { data, error } = await db.from("activity_logs").select("*").eq("owner_id", currentUser.id).order("created_at", { ascending: false }).limit(50);
+        if (error) return;
+        const target = document.querySelector("#activity .activity");
+        if (!target) return;
+        target.innerHTML = "";
+        (data ?? []).forEach((item) => {
+          const row = document.createElement("div");
+          row.className = "activity-row";
+          const dot = document.createElement("i");
+          dot.className = "activity-dot";
+          const body = document.createElement("div");
+          const message = document.createElement("p");
+          message.textContent = item.message;
+          const time = document.createElement("small");
+          time.textContent = `${item.actor} · ${new Date(item.created_at).toLocaleString("ja-JP")}`;
+          body.append(message, time);
+          row.append(dot, body);
+          target.appendChild(row);
+        });
+        if (!data?.length) target.innerHTML = '<div style="color:var(--muted);font-size:12px">まだ活動ログはありません。</div>';
       }
       function updateAuthUI() {
         const host = document.querySelector(".top-actions");
