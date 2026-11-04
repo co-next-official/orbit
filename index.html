@@ -483,6 +483,8 @@
         color: var(--muted);
         font-size: 11px;
       }
+      .task-action { margin-left: 7px; border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 3px 6px; color: var(--muted); font-size: 10px; white-space: nowrap; }
+      .task-action:hover { color: var(--ink); border-color: #aebdce; }
       .activity {
         display: grid;
         gap: 15px;
@@ -1122,6 +1124,7 @@ Invoke-RestMethod -Method Get `
         <label>ステータス</label><select id="todoDetailStatus"><option value="todo">未着手</option><option value="in_progress">進行中</option><option value="done">完了</option><option value="cancelled">キャンセル</option></select>
         <label>優先度</label><select id="todoDetailPriority"><option value="low">低</option><option value="normal">通常</option><option value="high">高</option><option value="urgent">緊急</option></select>
         <label>期限（任意）</label><input id="todoDetailDue" type="date" />
+        <label>GitHub Issue（任意）</label><div style="display:flex;gap:7px"><input id="todoDetailIssueUrl" placeholder="Issue URLを貼り付け" /><button class="top-btn" id="todoDetailOpenIssue" type="button">Issue化</button></div>
         <div class="modal-actions"><button class="ghost" id="todoDetailCancel">閉じる</button><button class="primary" id="todoDetailSave">保存する</button></div>
       </div>
     </div>
@@ -1144,6 +1147,7 @@ Invoke-RestMethod -Method Get `
       let currentUser = null;
       let currentProjectId = null;
       let currentGithubResource = null;
+      let todoIssueLinks = new Map();
       let todosRequestId = 0;
       // Initial project data is created explicitly by the user, never from public source.
       let todos = [
@@ -1257,15 +1261,34 @@ Invoke-RestMethod -Method Get `
         document.getElementById("todoDetailStatus").value = item.status || (item.done ? "done" : "todo");
         document.getElementById("todoDetailPriority").value = item.priority || "normal";
         document.getElementById("todoDetailDue").value = item.due || "";
+        document.getElementById("todoDetailIssueUrl").value = todoIssueLinks.get(item.id)?.url || "";
         todoDetailModal.dataset.originalDueAt = item.due_at || "";
         todoDetailModal.classList.add("show");
       }
+      function githubIssueUrl(value) {
+        try {
+          const url = new URL(value.trim());
+          if (url.hostname !== "github.com") return null;
+          const match = url.pathname.match(/^\/([^/]+)\/([^/]+)\/issues\/(\d+)/);
+          return match ? { url: `https://github.com/${match[1]}/${match[2]}/issues/${match[3]}`, externalId: `${match[1]}/${match[2]}#${match[3]}` } : null;
+        } catch (_) { return null; }
+      }
+      function openGitHubIssue(item) {
+        const repo = parseGithubRepo(document.getElementById("githubRepoInput").value) || parseGithubRepo("https://github.com/co-next-official/orbit");
+        if (!repo) return toast("先にGitHubリポジトリを連携してください");
+        const body = item.description ? `${item.description}\n\n---\nCreated from Orbit` : "Created from Orbit";
+        window.open(`https://github.com/${repo.fullName}/issues/new?title=${encodeURIComponent(item.title)}&body=${encodeURIComponent(body)}`, "_blank", "noopener");
+      }
+      document.getElementById("todoDetailOpenIssue").onclick = () => { if (selectedTodo) openGitHubIssue(selectedTodo); };
       document.getElementById("todoDetailSave").onclick = async () => {
         if (!selectedTodo || !currentUser || !currentProjectId) return;
         const projectId = currentProjectId;
         const todoId = selectedTodo.id;
         const originalDueAt = todoDetailModal.dataset.originalDueAt || "";
         const selectedDate = document.getElementById("todoDetailDue").value;
+        const issueValue = document.getElementById("todoDetailIssueUrl").value.trim();
+        const issue = issueValue ? githubIssueUrl(issueValue) : null;
+        if (issueValue && !issue) return toast("GitHub Issue URLを確認してください");
         const updates = {
           title: document.getElementById("todoDetailTitle").value.trim(),
           description: document.getElementById("todoDetailDescription").value.trim(),
@@ -1277,6 +1300,10 @@ Invoke-RestMethod -Method Get `
         const { data, error } = await db.from("todos").update(updates).eq("id", todoId).eq("project_id", projectId).eq("owner_id", currentUser.id).eq("updated_at", selectedTodo.updated_at).select().single();
         if (error) return toast(error.code === "PGRST116" ? "他の場所で更新されています。再読み込みして確認してください" : "TODOを更新できませんでした");
         const activityOk = await writeClientActivity(projectId, "todo.updated", `TODO「${data.title}」の詳細を更新`, { todo_id: todoId, source: "web" });
+        if (issue) {
+          const { error: linkError } = await db.from("todo_external_links").upsert({ todo_id: todoId, project_id: projectId, owner_id: currentUser.id, provider: "github", external_id: issue.externalId, url: issue.url }, { onConflict: "todo_id,provider,external_id" });
+          if (linkError) toast("TODOは更新しましたがIssue連携の保存にはDBマイグレーションが必要です");
+        }
         todoDetailModal.classList.remove("show");
         await refreshTodosIfCurrent(projectId);
         toast(activityOk ? "TODOを更新しました" : "TODOは更新済みですが活動ログに記録できませんでした");
@@ -1337,7 +1364,12 @@ Invoke-RestMethod -Method Get `
           const meta = document.createElement("small");
           const statusLabel = { todo: "未着手", in_progress: "進行中", done: "完了", cancelled: "キャンセル" };
           meta.textContent = item.due && !item.done ? `${statusLabel[item.status] || "未着手"} · 期限 ${item.due}` : (statusLabel[item.status] || (item.done ? "完了" : "未着手"));
-          row.append(button, text, meta);
+          const issue = todoIssueLinks.get(item.id);
+          const issueButton = document.createElement("button");
+          issueButton.className = "task-action";
+          issueButton.textContent = issue ? "Issue ↗" : "Issue化";
+          issueButton.onclick = (event) => { event.stopPropagation(); issue ? window.open(issue.url, "_blank", "noopener") : openGitHubIssue(item); };
+          row.append(button, text, meta, issueButton);
           todoList.appendChild(row);
         });
         updateTodoCount();
@@ -1380,6 +1412,8 @@ Invoke-RestMethod -Method Get `
         if (requestId !== todosRequestId || currentProjectId !== projectId) return;
         if (error) return toast("TODOを読み込めませんでした");
         todos = (data || []).map((item) => ({ ...item, done: item.status === "done", due: item.due_at ? item.due_at.slice(0, 10) : null }));
+        const links = await db.from("todo_external_links").select("todo_id,url,provider,external_id").eq("owner_id", currentUser.id).eq("project_id", projectId).eq("provider", "github");
+        todoIssueLinks = new Map((links.data || []).map((link) => [link.todo_id, link]));
         renderTodos();
         loadActivity();
       }
@@ -1440,7 +1474,7 @@ Invoke-RestMethod -Method Get `
         input.value = "";
         if (!currentUser || !projectId) return;
         const { data, error } = await db.from("project_resources").select("*").eq("owner_id", currentUser.id).eq("project_id", projectId).eq("provider", "github").eq("resource_type", "repository").limit(1).maybeSingle();
-        if (error && error.code !== "PGRST116") { target.textContent = "GitHub連携テーブルが未適用です。DBマイグレーション後に利用できます。"; return; }
+        if (error && error.code !== "PGRST116" && projectName !== "Orbit") { target.textContent = "GitHub連携テーブルが未適用です。DBマイグレーション後に利用できます。"; return; }
         const resource = data || (projectName === "Orbit" ? { url: "https://github.com/co-next-official/orbit" } : null);
         if (!resource?.url) return;
         input.value = resource.url;
