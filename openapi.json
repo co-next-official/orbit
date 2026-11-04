@@ -100,12 +100,39 @@
           "created_at": { "type": "string", "format": "date-time" }
         }
       },
+      "ProjectResource": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "project_id": { "type": "string", "format": "uuid" },
+          "provider": { "type": "string", "enum": ["github"] },
+          "resource_type": { "type": "string", "enum": ["repository"] },
+          "external_id": { "type": "string", "example": "co-next-official/orbit" },
+          "url": { "type": "string", "format": "uri" },
+          "name": { "type": "string" },
+          "metadata": { "type": "object" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ResourceCreate": {
+        "type": "object",
+        "required": ["provider", "resource_type", "url"],
+        "properties": {
+          "provider": { "type": "string", "enum": ["github"] },
+          "resource_type": { "type": "string", "enum": ["repository"] },
+          "url": { "type": "string", "format": "uri" },
+          "name": { "type": "string" },
+          "metadata": { "type": "object" }
+        }
+      },
       "ProjectDetail": {
         "type": "object",
         "properties": {
           "project": { "$ref": "#/components/schemas/Project" },
           "todos": { "type": "array", "items": { "$ref": "#/components/schemas/Todo" } },
-          "activity": { "type": "array", "items": { "$ref": "#/components/schemas/Activity" } }
+          "activity": { "type": "array", "items": { "$ref": "#/components/schemas/Activity" } },
+          "resources": { "type": "array", "items": { "$ref": "#/components/schemas/ProjectResource" } }
         }
       }
     }
@@ -146,6 +173,21 @@
         "parameters": [{ "name": "project_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TodoCreate" } } } },
         "responses": { "201": { "description": "作成されたTODO", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Todo" } } } } }
+      }
+    },
+    "/{project_id}/resources": {
+      "get": {
+        "operationId": "listProjectResources",
+        "summary": "プロジェクトに連携した外部リソースを取得",
+        "parameters": [{ "name": "project_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": { "200": { "description": "連携リソース一覧", "content": { "application/json": { "schema": { "type": "object", "properties": { "resources": { "type": "array", "items": { "$ref": "#/components/schemas/ProjectResource" } } } } } } } }
+      },
+      "post": {
+        "operationId": "connectProjectResource",
+        "summary": "GitHubリポジトリをプロジェクトに連携",
+        "parameters": [{ "name": "project_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ResourceCreate" } } } },
+        "responses": { "201": { "description": "連携されたリソース", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProjectResource" } } } } }
       }
     },
     "/{project_id}/todos/{todo_id}": {
