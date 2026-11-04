@@ -235,6 +235,19 @@
       .token-row:last-child { border-bottom:0; }
       .token-row small { display:block; color:var(--muted); margin-top:3px; }
       .muted-empty { color:var(--muted); font-size:12px; padding:12px 0; }
+      .integration-panel { grid-column: 1 / -1; }
+      .integration-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+      .integration-head h2 { margin:0; }
+      .integration-form { display:flex; gap:8px; align-items:center; }
+      .integration-form input { min-width:260px; flex:1; border:1px solid var(--line); border-radius:8px; padding:9px 10px; font:inherit; }
+      .github-summary { display:grid; grid-template-columns:1.3fr repeat(3, 1fr); gap:10px; margin-top:12px; }
+      .github-stat { border:1px solid var(--line); border-radius:9px; padding:10px; background:#fbfcfe; }
+      .github-stat b { display:block; font-size:16px; margin-top:3px; }
+      .github-stat small { color:var(--muted); }
+      .github-recent { margin-top:13px; display:grid; gap:7px; }
+      .github-item { display:flex; justify-content:space-between; gap:10px; padding:9px 10px; border:1px solid var(--line); border-radius:8px; font-size:12px; }
+      .github-item a { color:var(--ink); text-decoration:none; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .github-item small { color:var(--muted); white-space:nowrap; }
       .projects {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -616,6 +629,7 @@
         .detail-grid {
           grid-template-columns: 1fr;
         }
+        .github-summary { grid-template-columns: 1fr 1fr; }
       }
       @media (max-width: 620px) {
         .sidebar {
@@ -627,6 +641,8 @@
         .topbar {
           padding: 0 18px;
         }
+        .integration-form { flex-direction: column; align-items: stretch; }
+        .integration-form input { min-width: 0; }
         .hero {
           display: block;
         }
@@ -943,6 +959,17 @@
                 </div>
               </aside>
             </div>
+            <article class="panel integration-panel" style="margin-top:16px">
+              <div class="integration-head">
+                <div><h2>GitHub連携</h2><p style="margin:4px 0 0;color:var(--muted);font-size:12px">リポジトリの概要、Issue、PR、最新コミットを確認できます。</p></div>
+                <span class="status planning" id="githubStatus">未接続</span>
+              </div>
+              <div class="integration-form">
+                <input id="githubRepoInput" placeholder="https://github.com/owner/repository" autocomplete="off" />
+                <button class="primary" id="githubConnect">接続して保存</button>
+              </div>
+              <div id="githubContent" class="muted-empty">GitHubリポジトリを登録すると、公開情報を読み込みます。</div>
+            </article>
           </section>
           <section class="view" id="goals">
             <div class="hero">
@@ -1116,6 +1143,7 @@ Invoke-RestMethod -Method Get `
       const views = [...document.querySelectorAll(".view")];
       let currentUser = null;
       let currentProjectId = null;
+      let currentGithubResource = null;
       let todosRequestId = 0;
       // Initial project data is created explicitly by the user, never from public source.
       let todos = [
@@ -1145,7 +1173,10 @@ Invoke-RestMethod -Method Get `
         const description = card.querySelector("p")?.textContent || "";
         document.querySelector(".detail-title h1").textContent = name;
         document.querySelector(".detail-title p").textContent = description;
-        if (currentProjectId) loadTodosForProject(currentProjectId);
+        if (currentProjectId) {
+          loadTodosForProject(currentProjectId);
+          loadGithubResource(currentProjectId, name);
+        }
         show("detail");
       }
       document.querySelectorAll("#projectFilters .filter").forEach((button) => {
@@ -1355,6 +1386,91 @@ Invoke-RestMethod -Method Get `
       async function refreshTodosIfCurrent(projectId) {
         if (currentProjectId === projectId) await loadTodosForProject(projectId);
       }
+      function parseGithubRepo(value) {
+        try {
+          const url = new URL(value.trim());
+          if (url.hostname !== "github.com") return null;
+          const parts = url.pathname.split("/").filter(Boolean);
+          if (parts.length < 2) return null;
+          const owner = parts[0];
+          const repo = parts[1].replace(/\\.git$/, "");
+          if (!/^[A-Za-z0-9_.-]+$/.test(owner) || !/^[A-Za-z0-9_.-]+$/.test(repo)) return null;
+          return { owner, repo, fullName: `${owner}/${repo}`, url: `https://github.com/${owner}/${repo}` };
+        } catch (_) { return null; }
+      }
+      function githubStatus(label, kind = "planning") {
+        const node = document.getElementById("githubStatus");
+        node.textContent = label;
+        node.className = `status ${kind}`;
+      }
+      function renderGithubData(repo, data) {
+        const target = document.getElementById("githubContent");
+        target.innerHTML = "";
+        const summary = document.createElement("div"); summary.className = "github-summary";
+        const repoStat = document.createElement("div"); repoStat.className = "github-stat";
+        repoStat.innerHTML = "<small>リポジトリ</small><b></b>";
+        repoStat.querySelector("b").textContent = data.repo.full_name;
+        const stats = [["Stars", data.repo.stargazers_count], ["Issue", data.issues.length], ["PR", data.pulls.length]];
+        summary.appendChild(repoStat);
+        stats.forEach(([label, value]) => { const item = document.createElement("div"); item.className = "github-stat"; item.innerHTML = `<small>${label}</small><b>${Number(value) || 0}</b>`; summary.appendChild(item); });
+        target.appendChild(summary);
+        const recent = document.createElement("div"); recent.className = "github-recent";
+        const heading = document.createElement("small"); heading.style.color = "var(--muted)"; heading.textContent = "最新コミット"; recent.appendChild(heading);
+        (data.commits || []).slice(0, 5).forEach((commit) => {
+          const row = document.createElement("div"); row.className = "github-item";
+          const link = document.createElement("a"); link.href = commit.html_url; link.target = "_blank"; link.rel = "noreferrer"; link.textContent = (commit.commit?.message || "コミット").split("\\n")[0];
+          const date = document.createElement("small"); date.textContent = commit.commit?.author?.date ? new Date(commit.commit.author.date).toLocaleDateString("ja-JP") : "";
+          row.append(link, date); recent.appendChild(row);
+        });
+        target.appendChild(recent);
+        const issues = [...(data.issues || []), ...(data.pulls || [])].slice(0, 5);
+        if (issues.length) {
+          const issueList = document.createElement("div"); issueList.className = "github-recent";
+          const issueHeading = document.createElement("small"); issueHeading.style.color = "var(--muted)"; issueHeading.textContent = "Issue / Pull Request"; issueList.appendChild(issueHeading);
+          issues.forEach((item) => { const row = document.createElement("div"); row.className = "github-item"; const link = document.createElement("a"); link.href = item.html_url; link.target = "_blank"; link.rel = "noreferrer"; link.textContent = `#${item.number} ${item.title}`; const type = document.createElement("small"); type.textContent = item.pull_request ? "PR" : "Issue"; row.append(link, type); issueList.appendChild(row); });
+          target.appendChild(issueList);
+        }
+        const footer = document.createElement("a"); footer.href = repo.url; footer.target = "_blank"; footer.rel = "noreferrer"; footer.style = "display:inline-block;margin-top:12px;font-size:12px;color:var(--blue)"; footer.textContent = "GitHubで開く ↗"; target.appendChild(footer);
+      }
+      async function loadGithubResource(projectId, projectName = "") {
+        const input = document.getElementById("githubRepoInput");
+        const target = document.getElementById("githubContent");
+        currentGithubResource = null;
+        githubStatus("未接続");
+        input.value = "";
+        if (!currentUser || !projectId) return;
+        const { data, error } = await db.from("project_resources").select("*").eq("owner_id", currentUser.id).eq("project_id", projectId).eq("provider", "github").eq("resource_type", "repository").limit(1).maybeSingle();
+        if (error && error.code !== "PGRST116") { target.textContent = "GitHub連携テーブルが未適用です。DBマイグレーション後に利用できます。"; return; }
+        const resource = data || (projectName === "Orbit" ? { url: "https://github.com/co-next-official/orbit" } : null);
+        if (!resource?.url) return;
+        input.value = resource.url;
+        currentGithubResource = resource;
+        await refreshGithubData(resource.url);
+      }
+      async function refreshGithubData(value) {
+        const repo = parseGithubRepo(value);
+        if (!repo) return githubStatus("URLを確認", "hold");
+        githubStatus("読み込み中…");
+        try {
+          const headers = { Accept: "application/vnd.github+json" };
+          const responses = await Promise.all(["", "/commits?per_page=5", "/issues?state=open&per_page=5", "/pulls?state=open&per_page=5"].map((suffix) => fetch(`https://api.github.com/repos/${repo.fullName}${suffix}`, { headers })));
+          if (responses.some((response) => !response.ok)) throw new Error("GitHub API unavailable");
+          const [repoResponse, commitsResponse, issuesResponse, pullsResponse] = responses;
+          renderGithubData(repo, { repo: await repoResponse.json(), commits: await commitsResponse.json(), issues: await issuesResponse.json(), pulls: await pullsResponse.json() });
+          githubStatus("接続中", "active");
+        } catch (_) { githubStatus("読み込み失敗", "hold"); document.getElementById("githubContent").textContent = "GitHub APIから取得できませんでした。公開リポジトリかURLを確認してください。"; }
+      }
+      document.getElementById("githubConnect").onclick = async () => {
+        if (!currentUser || !currentProjectId) return toast("プロジェクトを選択してください");
+        const repo = parseGithubRepo(document.getElementById("githubRepoInput").value);
+        if (!repo) return toast("GitHubのリポジトリURLを入力してください");
+        const { error } = await db.from("project_resources").upsert({ project_id: currentProjectId, owner_id: currentUser.id, provider: "github", resource_type: "repository", external_id: repo.fullName, url: repo.url, name: repo.fullName }, { onConflict: "project_id,provider,resource_type,external_id" });
+        if (error) return toast("GitHub連携を保存できません。DBマイグレーションを確認してください");
+        await writeClientActivity(currentProjectId, "resource.connected", `GitHubリポジトリ「${repo.fullName}」を連携`, { provider: "github", resource_type: "repository", external_id: repo.fullName, source: "web" });
+        currentGithubResource = repo;
+        await refreshGithubData(repo.url);
+        toast("GitHubを連携しました");
+      };
       function toast(message) {
         const t = document.getElementById("toast");
         t.textContent = message;
