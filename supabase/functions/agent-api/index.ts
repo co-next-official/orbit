@@ -38,6 +38,20 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const pathParts = url.pathname.split("/").filter(Boolean);
   const parts = pathParts[0] === "agent-api" ? pathParts.slice(1) : pathParts;
+  if (req.method === "GET" && parts[0] === "projects") {
+    if (!token.scopes.includes("read")) return json({ error: "scope_forbidden" }, 403);
+    const { data, error } = await supabase.from("projects").select("*").eq("owner_id", token.owner_id).order("updated_at", { ascending: false });
+    if (error) return json({ error: error.message }, 400);
+    return json({ projects: data ?? [] });
+  }
+  if (req.method === "POST" && parts[0] === "projects") {
+    if (token.project_id || !token.scopes.includes("write")) return json({ error: "project_scope_forbidden" }, 403);
+    const body = await req.json();
+    if (!body.name) return json({ error: "name_required" }, 400);
+    const { data, error } = await supabase.from("projects").insert({ owner_id: token.owner_id, name: body.name, description: body.description ?? "", status: body.status ?? "planning", progress: body.progress ?? 0 }).select().single();
+    if (error) return json({ error: error.message }, 400);
+    return json(data, 201);
+  }
   const projectId = parts[0];
   if (token.project_id && token.project_id !== projectId) return json({ error: "project_forbidden" }, 403);
   if (!token.scopes.includes(req.method === "GET" ? "read" : "write")) return json({ error: "scope_forbidden" }, 403);
