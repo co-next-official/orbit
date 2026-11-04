@@ -1098,6 +1098,20 @@ Invoke-RestMethod -Method Get `
       const views = [...document.querySelectorAll(".view")];
       let currentUser = null;
       let currentProjectId = null;
+      const knownProjects = [
+        { name: "Orbit", description: "やりたいことと、今やっていることをつなぐ個人用プロジェクト管理ツール。CodexやClaude Codeから進捗とTODOを更新できるようにする。", status: "active", progress: 72, todos: ["活動ログを確実に反映する", "Googleログインと個人データ分離を確認する", "Agent APIの利用例を整備する"] },
+        { name: "AIエージェント向けメール基盤", description: "AIが自分のメールアドレスを持ち、AI同士や人間と通信できるSaaS基盤。AgentToMailに近い仕組みから、AIのアイデンティティまで広げる。", status: "planning", progress: 18, todos: ["AIエージェントの一意な識別単位を決める", "受信・送信・転送の最小構成を設計する", "メールボックスと権限モデルを検討する"] },
+        { name: "宅内サーバー環境", description: "Minecraft、ローカルLLM、各種自動化を24時間稼働させる宅内サーバー。電気代を抑えつつ、将来の35B以上のモデルも見据える。", status: "planning", progress: 12, todos: ["中古・新品サーバー候補を比較する", "メモリ容量と電気代を見積もる", "MinecraftとローカルLLMの共存構成を決める"] },
+        { name: "みんなで遊べる終わりのないゲーム", description: "ゲーム、視聴、雑談が同じ世界にある身内向けの場所。対戦している人の上で別の人がYouTubeを見るような、共有できる遊び場を目指す。", status: "paused", progress: 8, todos: ["ロビーとワールド構造を決める", "マルチプレイの接続を確認する", "観戦者とプレイヤーが共存する体験を試作する"] },
+        { name: "Highlight Recorder", description: "配信していない時間もゲームのハイライトを残せるElectron・OBSベースの録画ツール。キルや勝利などのイベント検知による自動クリップを目指す。", status: "active", progress: 48, todos: ["途中録画開始時のFPS低下を解消する", "ゲームイベント検知エンジンを分離する", "Discord自鯖へのクリップ共有を安定させる"] },
+        { name: "Mini Player", description: "ゲーム中に一瞬で動画を見られる常駐ミニプレイヤー。待ち時間や早く倒された時間を、無理なく動画視聴に変える。", status: "active", progress: 82, todos: ["v0.5.0の利用感を振り返る", "ゲーム中の操作性を改善する", "配布とアップデート導線を整える"] },
+        { name: "AIビジネス輸入ラボ", description: "海外で実際に売れているAIビジネスを日本向けに比較し、売上の根拠・国内競合・適合性・実現性・収益モデルから候補を絞り込む非公開ラボ。", status: "active", progress: 35, todos: ["海外事例を実績ベースで収集する", "日本市場の競合と価格を比較する", "個人開発で検証できる候補を1つ選ぶ"] },
+        { name: "Hermes", description: "Podcastや情報収集、週次棚卸しを自動化するエージェント基盤。誰かがいないと進まない状態を減らし、常に動く仕組みを作る。", status: "planning", progress: 22, todos: ["週次棚卸しの入力と出力を定義する", "Podcast自動生成の流れを整理する", "常時稼働する実行環境を決める"] },
+        { name: "ARTEXセキュリティ検証", description: "AIエージェントがDocker上の端末を操作して、どの程度の速度で脆弱点を洗い出せるかをオフライン環境で検証する。対策側の検証にもつなげる。", status: "active", progress: 62, todos: ["検証ログをナレッジ共有会向けに整理する", "攻撃側と防御側の観測項目を分ける", "再現可能な安全な検証環境を残す"] },
+        { name: "Co-Next Studio", description: "小規模事業者・配信者・Vtuber向けに、Web制作とAI・自動化を組み合わせたサービスを提供する事業基盤。受託だけでなく、自社プロダクト化を目指す。", status: "active", progress: 40, todos: ["サービスプランと保守範囲を整理する", "デモと比較表を改善する", "営業から開発・納品までの流れを標準化する"] },
+        { name: "ストリーマー向けイベント管理", description: "小規模ストリーマーやVtuberのイベントで、チーム分け・進行・告知を扱える導線を作る。スプレッドシート作業を減らし、ニッチな現場に寄り添う。", status: "planning", progress: 28, todos: ["イベント参加者とチームのデータ構造を決める", "運営者向けの進行画面を作る", "実際のイベントで試す"] },
+        { name: "言葉マッチングMVP", description: "受託制作で納品したWebアプリ。Cloudflare PagesとSupabaseを使ったMVP開発の実績として、構成と手順を再利用できる形に残す。", status: "completed", progress: 100, todos: ["構成とデプロイ手順を記録する", "今後の保守範囲を整理する"] }
+      ];
       let todos = [
         { title: "Today画面の基本レイアウト", done: true },
         { title: "プロジェクト構造を決める", done: true },
@@ -1347,6 +1361,30 @@ Invoke-RestMethod -Method Get `
         });
         updateProjectCounts();
       }
+      async function bootstrapKnownProjects() {
+        if (!currentUser) return;
+        const { data: existing, error: projectError } = await db.from("projects").select("id,name").eq("owner_id", currentUser.id);
+        if (projectError) return;
+        const existingNames = new Set((existing || []).map((project) => project.name));
+        for (const seed of knownProjects) {
+          if (existingNames.has(seed.name)) continue;
+          const { data: project, error } = await db.from("projects").insert({ owner_id: currentUser.id, name: seed.name, description: seed.description, status: seed.status, progress: seed.progress }).select().single();
+          if (error || !project) continue;
+          if (seed.todos?.length) await db.from("todos").insert(seed.todos.map((title) => ({ project_id: project.id, owner_id: currentUser.id, title, status: "todo", priority: "normal", created_by: "human" })));
+          await db.from("activity_logs").insert({ project_id: project.id, owner_id: currentUser.id, actor: "human", action: "project.seeded", message: `把握しているプロジェクト「${project.name}」を登録`, metadata: { source: "orbit-bootstrap" } });
+        }
+        const { data: goals } = await db.from("goals").select("title").eq("owner_id", currentUser.id);
+        const goalNames = new Set((goals || []).map((goal) => goal.title));
+        const knownGoals = [
+          "AIに自分のメールアドレスを持たせる",
+          "みんなで遊べる終わりのないゲームを作る",
+          "AIを雇うように使える自社プロダクトを作る",
+          "ローカルLLMと自動化で誰かがいなくても進む環境を作る",
+          "小規模クリエイターの面倒な運営業務を減らす"
+        ];
+        const missingGoals = knownGoals.filter((title) => !goalNames.has(title)).map((title) => ({ owner_id: currentUser.id, title, status: "active" }));
+        if (missingGoals.length) await db.from("goals").insert(missingGoals);
+      }
       async function loadTokens() {
         if (!currentUser) return;
         const list = document.getElementById("tokenList");
@@ -1437,6 +1475,7 @@ Invoke-RestMethod -Method Get `
       async function bootAuth() {
         await loadTodos();
         updateProjectCounts();
+        await bootstrapKnownProjects();
         loadProjects();
         loadGoals();
         loadTokens();
