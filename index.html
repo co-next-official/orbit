@@ -1243,24 +1243,25 @@ Invoke-RestMethod -Method Get `
         };
         if (selectedDate !== (originalDueAt ? originalDueAt.slice(0, 10) : "")) updates.due_at = selectedDate ? `${selectedDate}T23:59:59+09:00` : null;
         if (!updates.title) return toast("タイトルを入力してください");
-        const { data, error } = await db.from("todos").update(updates).eq("id", todoId).eq("project_id", projectId).eq("owner_id", currentUser.id).select().single();
-        if (error) return toast("TODOを更新できませんでした");
-        await writeClientActivity(projectId, "todo.updated", `TODO「${data.title}」の詳細を更新`, { todo_id: todoId, source: "web" });
+        const { data, error } = await db.from("todos").update(updates).eq("id", todoId).eq("project_id", projectId).eq("owner_id", currentUser.id).eq("updated_at", selectedTodo.updated_at).select().single();
+        if (error) return toast(error.code === "PGRST116" ? "他の場所で更新されています。再読み込みして確認してください" : "TODOを更新できませんでした");
+        const activityOk = await writeClientActivity(projectId, "todo.updated", `TODO「${data.title}」の詳細を更新`, { todo_id: todoId, source: "web" });
         todoDetailModal.classList.remove("show");
-        await loadTodosForProject(projectId);
-        toast("TODOを更新しました");
+        await refreshTodosIfCurrent(projectId);
+        toast(activityOk ? "TODOを更新しました" : "TODOは更新済みですが活動ログに記録できませんでした");
       };
       document.getElementById("todoSave").onclick = async () => {
         const title = todoInput.value.trim();
         if (!title || !currentUser || !currentProjectId) return toast("プロジェクトを選択してください");
-        const { error } = await db.from("todos").insert({ project_id: currentProjectId, owner_id: currentUser.id, title, due_at: todoDue.value || null, status: "todo", priority: "normal", created_by: "human" });
+        const projectId = currentProjectId;
+        const { error } = await db.from("todos").insert({ project_id: projectId, owner_id: currentUser.id, title, due_at: todoDue.value ? `${todoDue.value}T23:59:59+09:00` : null, status: "todo", priority: "normal", created_by: "human" });
         if (error) return toast("TODOを保存できませんでした");
-        await writeClientActivity(currentProjectId, "todo.created", `TODO「${title}」を追加`, { source: "web" });
+        const activityOk = await writeClientActivity(projectId, "todo.created", `TODO「${title}」を追加`, { source: "web" });
         todoInput.value = "";
         todoDue.value = "";
         todoModal.classList.remove("show");
-        await loadTodosForProject(currentProjectId);
-        toast("TODOを追加しました");
+        await refreshTodosIfCurrent(projectId);
+        toast(activityOk ? "TODOを追加しました" : "TODOは追加済みですが活動ログに記録できませんでした");
       };
       document.getElementById("addGoal").onclick = () => { document.getElementById("goalModal").classList.add("show"); document.getElementById("goalInput").focus(); };
       document.getElementById("goalCancel").onclick = () => document.getElementById("goalModal").classList.remove("show");
@@ -1294,10 +1295,11 @@ Invoke-RestMethod -Method Get `
             if (!currentProjectId || !item.id) return;
             const nextStatus = item.done ? "todo" : "done";
             const projectId = currentProjectId;
-            const { data, error } = await db.from("todos").update({ status: nextStatus }).eq("id", item.id).eq("project_id", projectId).eq("owner_id", currentUser.id).select().single();
-            if (error) return toast("TODOを更新できませんでした");
-            await writeClientActivity(projectId, "todo.updated", `TODO「${data.title}」を${nextStatus === "done" ? "完了" : "未完了"}に変更`, { todo_id: item.id, status: nextStatus, source: "web" });
-            await loadTodosForProject(projectId);
+            const { data, error } = await db.from("todos").update({ status: nextStatus }).eq("id", item.id).eq("project_id", projectId).eq("owner_id", currentUser.id).eq("updated_at", item.updated_at).select().single();
+            if (error) return toast(error.code === "PGRST116" ? "他の場所で更新されています。再読み込みしてください" : "TODOを更新できませんでした");
+            const activityOk = await writeClientActivity(projectId, "todo.updated", `TODO「${data.title}」を${nextStatus === "done" ? "完了" : "未完了"}に変更`, { todo_id: item.id, status: nextStatus, source: "web" });
+            await refreshTodosIfCurrent(projectId);
+            if (!activityOk) toast("TODOは更新済みですが活動ログに記録できませんでした");
           };
           const text = document.createElement("span");
           text.textContent = item.title;
@@ -1350,6 +1352,9 @@ Invoke-RestMethod -Method Get `
         renderTodos();
         loadActivity();
       }
+      async function refreshTodosIfCurrent(projectId) {
+        if (currentProjectId === projectId) await loadTodosForProject(projectId);
+      }
       function toast(message) {
         const t = document.getElementById("toast");
         t.textContent = message;
@@ -1358,7 +1363,8 @@ Invoke-RestMethod -Method Get `
       }
       async function writeClientActivity(projectId, action, message, metadata = {}) {
         if (!currentUser || !projectId) return;
-        await db.from("activity_logs").insert({ project_id: projectId, owner_id: currentUser.id, actor: "human", action, message, metadata });
+        const { error } = await db.from("activity_logs").insert({ project_id: projectId, owner_id: currentUser.id, actor: "human", action, message, metadata });
+        return !error;
       }
       async function loadActivity() {
         if (!currentUser) return;
