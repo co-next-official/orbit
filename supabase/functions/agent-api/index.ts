@@ -95,6 +95,21 @@ Deno.serve(async (req) => {
     return json({ project: project.data, todos: todos.data ?? [], activity: activity.data ?? [] });
   }
 
+  if (req.method === "POST" && parts[1] === "activity" && parts.length === 2) {
+    const project = await getOwnedProject(projectId, token.owner_id);
+    if (project.error || !project.data) return json({ error: "project_not_found" }, 404);
+    const parsed = await readJson(req);
+    if (parsed.error) return parsed.error;
+    const body = parsed.body!;
+    if (typeof body.message !== "string" || !body.message.trim()) return json({ error: "message_required" }, 400);
+    const action = typeof body.action === "string" && /^[a-z0-9_.-]{1,64}$/.test(body.action) ? body.action : "agent.note";
+    const actor = ["agent", "claude", "codex"].includes(String(body.actor)) ? String(body.actor) : "agent";
+    const metadata = body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata) ? body.metadata : {};
+    const { data, error } = await supabase.from("activity_logs").insert({ project_id: projectId, owner_id: token.owner_id, actor, action, message: body.message.trim().slice(0, 2000), metadata: { ...metadata, source: "agent-api" } }).select().single();
+    if (error) return json({ error: error.message }, 400);
+    return json(data, 201);
+  }
+
   if (req.method === "POST" && parts[1] === "todos") {
     const project = await getOwnedProject(projectId, token.owner_id);
     if (project.error || !project.data) return json({ error: "project_not_found" }, 404);
