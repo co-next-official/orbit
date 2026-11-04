@@ -1151,18 +1151,20 @@ Invoke-RestMethod -Method Get `
       });
       document.getElementById("back").onclick = () => show("projects");
       document.getElementById("archiveProject").onclick = async () => {
-        if (!currentUser) return toast("ログインが必要です");
-        const { error } = await db.from("projects").update({ status: "archived" }).eq("owner_id", currentUser.id).eq("name", "Orbit MVP");
+        if (!currentUser || !currentProjectId) return toast("DB上のプロジェクトを選択してください");
+        const { error } = await db.from("projects").update({ status: "archived" }).eq("owner_id", currentUser.id).eq("id", currentProjectId);
         if (error) return toast("アーカイブに失敗しました");
         toast("プロジェクトをアーカイブしました");
-        document.querySelector('.project-card[data-project="orbit"]').dataset.status = "archived";
+        const card = document.querySelector(`.project-card[data-project-id="${currentProjectId}"]`);
+        if (card) card.dataset.status = "archived";
         show("projects");
       };
       document.getElementById("deleteProject").onclick = async () => {
-        if (!currentUser || !confirm("Orbit MVPを削除しますか？TODOと活動ログも削除されます。")) return;
-        const { error } = await db.from("projects").delete().eq("owner_id", currentUser.id).eq("name", "Orbit MVP");
+        if (!currentUser || !currentProjectId || !confirm("このプロジェクトを削除しますか？TODOと活動ログも削除されます。")) return;
+        const { error } = await db.from("projects").delete().eq("owner_id", currentUser.id).eq("id", currentProjectId);
         if (error) return toast("削除に失敗しました");
-        document.querySelector('.project-card[data-project="orbit"]').remove();
+        const card = document.querySelector(`.project-card[data-project-id="${currentProjectId}"]`);
+        if (card) card.remove();
         toast("プロジェクトを削除しました");
         show("projects");
       };
