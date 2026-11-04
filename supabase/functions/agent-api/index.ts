@@ -33,7 +33,9 @@ function json(body: unknown, status = 200) {
 
 async function readJson(req: Request) {
   try {
-    return { body: await req.json() as Record<string, unknown>, error: null };
+    const value = await req.json();
+    if (!value || typeof value !== "object" || Array.isArray(value)) return { body: null, error: json({ error: "invalid_json_object" }, 400) };
+    return { body: value as Record<string, unknown>, error: null };
   } catch {
     return { body: null, error: json({ error: "invalid_json" }, 400) };
   }
@@ -95,22 +97,7 @@ Deno.serve(async (req) => {
     return json({ project: project.data, todos: todos.data ?? [], activity: activity.data ?? [] });
   }
 
-  if (req.method === "POST" && parts[1] === "activity" && parts.length === 2) {
-    const project = await getOwnedProject(projectId, token.owner_id);
-    if (project.error || !project.data) return json({ error: "project_not_found" }, 404);
-    const parsed = await readJson(req);
-    if (parsed.error) return parsed.error;
-    const body = parsed.body!;
-    if (typeof body.message !== "string" || !body.message.trim()) return json({ error: "message_required" }, 400);
-    const action = typeof body.action === "string" && /^[a-z0-9_.-]{1,64}$/.test(body.action) ? body.action : "agent.note";
-    const actor = ["agent", "claude", "codex"].includes(String(body.actor)) ? String(body.actor) : "agent";
-    const metadata = body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata) ? body.metadata : {};
-    const { data, error } = await supabase.from("activity_logs").insert({ project_id: projectId, owner_id: token.owner_id, actor, action, message: body.message.trim().slice(0, 2000), metadata: { ...metadata, source: "agent-api" } }).select().single();
-    if (error) return json({ error: error.message }, 400);
-    return json(data, 201);
-  }
-
-  if (req.method === "POST" && parts[1] === "todos") {
+  if (req.method === "POST" && parts.length === 2 && parts[1] === "todos") {
     const project = await getOwnedProject(projectId, token.owner_id);
     if (project.error || !project.data) return json({ error: "project_not_found" }, 404);
     const parsed = await readJson(req);
@@ -133,6 +120,7 @@ Deno.serve(async (req) => {
     const body = parsed.body!;
     const updates = pick(body, ["title", "description", "status", "priority", "due_at"]);
     if (!Object.keys(updates).length) return json({ error: "no_updatable_fields" }, 400);
+    if (updates.title !== undefined && (typeof updates.title !== "string" || !updates.title.trim())) return json({ error: "invalid_title" }, 400);
     if (updates.status !== undefined && !["todo", "in_progress", "done", "cancelled"].includes(String(updates.status))) return json({ error: "invalid_status" }, 400);
     if (updates.priority !== undefined && !["low", "normal", "high", "urgent"].includes(String(updates.priority))) return json({ error: "invalid_priority" }, 400);
     const { data, error } = await supabase.from("todos").update(updates).eq("id", parts[2]).eq("project_id", projectId).eq("owner_id", token.owner_id).select().single();
@@ -148,6 +136,7 @@ Deno.serve(async (req) => {
     const body = parsed.body!;
     const updates = pick(body, ["name", "description", "status", "progress"]);
     if (!Object.keys(updates).length) return json({ error: "no_updatable_fields" }, 400);
+    if (updates.name !== undefined && (typeof updates.name !== "string" || !updates.name.trim())) return json({ error: "invalid_name" }, 400);
     if (updates.status !== undefined && !["planning", "active", "paused", "completed", "archived"].includes(String(updates.status))) return json({ error: "invalid_status" }, 400);
     if (updates.progress !== undefined && (!Number.isInteger(updates.progress as number) || Number(updates.progress) < 0 || Number(updates.progress) > 100)) return json({ error: "invalid_progress" }, 400);
     const { data, error } = await supabase.from("projects").update(updates).eq("id", projectId).eq("owner_id", token.owner_id).select().single();
