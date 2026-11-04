@@ -441,6 +441,7 @@
         align-items: center;
         padding: 11px 0;
         border-bottom: 1px solid var(--line);
+        cursor: pointer;
       }
       .task:last-child {
         border-bottom: 0;
@@ -552,6 +553,8 @@
         padding: 23px;
         width: min(450px, 100%);
         box-shadow: 0 20px 60px #18223133;
+        max-height: calc(100dvh - 40px);
+        overflow-y: auto;
       }
       .modal-box h2 {
         margin: 0 0 4px;
@@ -566,13 +569,16 @@
         font-size: 12px;
         margin: 13px 0 5px;
       }
-      .modal-box input {
+      .modal-box input,
+      .modal-box textarea,
+      .modal-box select {
         width: 100%;
         border: 1px solid var(--line);
         padding: 10px;
         border-radius: 8px;
         font: inherit;
       }
+      .modal-box textarea { min-height: 110px; resize: vertical; }
       .modal-actions {
         display: flex;
         justify-content: flex-end;
@@ -1080,6 +1086,18 @@ Invoke-RestMethod -Method Get `
         </div>
       </div>
     </div>
+    <div class="modal" id="todoDetailModal">
+      <div class="modal-box">
+        <h2>TODOの詳細</h2>
+        <p>具体的な作業内容や状態を管理する。</p>
+        <label>タイトル</label><input id="todoDetailTitle" />
+        <label>具体的な内容</label><textarea id="todoDetailDescription" placeholder="背景、完了条件、作業メモなど"></textarea>
+        <label>ステータス</label><select id="todoDetailStatus"><option value="todo">未着手</option><option value="in_progress">進行中</option><option value="done">完了</option><option value="cancelled">キャンセル</option></select>
+        <label>優先度</label><select id="todoDetailPriority"><option value="low">低</option><option value="normal">通常</option><option value="high">高</option><option value="urgent">緊急</option></select>
+        <label>期限（任意）</label><input id="todoDetailDue" type="date" />
+        <div class="modal-actions"><button class="ghost" id="todoDetailCancel">閉じる</button><button class="primary" id="todoDetailSave">保存する</button></div>
+      </div>
+    </div>
     <div class="toast" id="toast">プロジェクトを追加しました</div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -1098,6 +1116,7 @@ Invoke-RestMethod -Method Get `
       const views = [...document.querySelectorAll(".view")];
       let currentUser = null;
       let currentProjectId = null;
+      let todosRequestId = 0;
       // Initial project data is created explicitly by the user, never from public source.
       let todos = [
         { title: "Today画面の基本レイアウト", done: true },
@@ -1189,13 +1208,48 @@ Invoke-RestMethod -Method Get `
       const todoModal = document.getElementById("todoModal"),
         todoInput = document.getElementById("todoInput"),
         todoDue = document.getElementById("todoDue"),
+        todoDetailModal = document.getElementById("todoDetailModal"),
         todoList = document.getElementById("todoList");
+      let selectedTodo = null;
       document.getElementById("addTodo").onclick = () => {
         todoModal.classList.add("show");
         todoInput.focus();
       };
       document.getElementById("todoCancel").onclick = () =>
         todoModal.classList.remove("show");
+      document.getElementById("todoDetailCancel").onclick = () => todoDetailModal.classList.remove("show");
+      function openTodoDetail(item) {
+        if (!item?.id) return;
+        selectedTodo = item;
+        document.getElementById("todoDetailTitle").value = item.title || "";
+        document.getElementById("todoDetailDescription").value = item.description || "";
+        document.getElementById("todoDetailStatus").value = item.status || (item.done ? "done" : "todo");
+        document.getElementById("todoDetailPriority").value = item.priority || "normal";
+        document.getElementById("todoDetailDue").value = item.due || "";
+        todoDetailModal.dataset.originalDueAt = item.due_at || "";
+        todoDetailModal.classList.add("show");
+      }
+      document.getElementById("todoDetailSave").onclick = async () => {
+        if (!selectedTodo || !currentUser || !currentProjectId) return;
+        const projectId = currentProjectId;
+        const todoId = selectedTodo.id;
+        const originalDueAt = todoDetailModal.dataset.originalDueAt || "";
+        const selectedDate = document.getElementById("todoDetailDue").value;
+        const updates = {
+          title: document.getElementById("todoDetailTitle").value.trim(),
+          description: document.getElementById("todoDetailDescription").value.trim(),
+          status: document.getElementById("todoDetailStatus").value,
+          priority: document.getElementById("todoDetailPriority").value,
+        };
+        if (selectedDate !== (originalDueAt ? originalDueAt.slice(0, 10) : "")) updates.due_at = selectedDate ? `${selectedDate}T23:59:59+09:00` : null;
+        if (!updates.title) return toast("タイトルを入力してください");
+        const { data, error } = await db.from("todos").update(updates).eq("id", todoId).eq("project_id", projectId).eq("owner_id", currentUser.id).select().single();
+        if (error) return toast("TODOを更新できませんでした");
+        await writeClientActivity(projectId, "todo.updated", `TODO「${data.title}」の詳細を更新`, { todo_id: todoId, source: "web" });
+        todoDetailModal.classList.remove("show");
+        await loadTodosForProject(projectId);
+        toast("TODOを更新しました");
+      };
       document.getElementById("todoSave").onclick = async () => {
         const title = todoInput.value.trim();
         if (!title || !currentUser || !currentProjectId) return toast("プロジェクトを選択してください");
@@ -1231,21 +1285,25 @@ Invoke-RestMethod -Method Get `
         ordered.forEach(({ item, index }) => {
           const row = document.createElement("div");
           row.className = "task" + (item.done ? " done" : "");
+          row.onclick = () => openTodoDetail(item);
           const button = document.createElement("button");
           button.className = "task-check todo-toggle";
           button.textContent = item.done ? "✓" : "";
-          button.onclick = async () => {
+          button.onclick = async (event) => {
+            event.stopPropagation();
             if (!currentProjectId || !item.id) return;
             const nextStatus = item.done ? "todo" : "done";
-            const { error } = await db.from("todos").update({ status: nextStatus }).eq("id", item.id).eq("project_id", currentProjectId).eq("owner_id", currentUser.id);
+            const projectId = currentProjectId;
+            const { data, error } = await db.from("todos").update({ status: nextStatus }).eq("id", item.id).eq("project_id", projectId).eq("owner_id", currentUser.id).select().single();
             if (error) return toast("TODOを更新できませんでした");
-            await writeClientActivity(currentProjectId, "todo.updated", `TODO「${item.title}」を${nextStatus === "done" ? "完了" : "未完了"}に変更`, { todo_id: item.id, status: nextStatus, source: "web" });
-            await loadTodosForProject(currentProjectId);
+            await writeClientActivity(projectId, "todo.updated", `TODO「${data.title}」を${nextStatus === "done" ? "完了" : "未完了"}に変更`, { todo_id: item.id, status: nextStatus, source: "web" });
+            await loadTodosForProject(projectId);
           };
           const text = document.createElement("span");
           text.textContent = item.title;
           const meta = document.createElement("small");
-          meta.textContent = item.done ? "完了" : (item.due ? `期限 ${item.due}` : "未着手");
+          const statusLabel = { todo: "未着手", in_progress: "進行中", done: "完了", cancelled: "キャンセル" };
+          meta.textContent = item.due && !item.done ? `${statusLabel[item.status] || "未着手"} · 期限 ${item.due}` : (statusLabel[item.status] || (item.done ? "完了" : "未着手"));
           row.append(button, text, meta);
           todoList.appendChild(row);
         });
@@ -1253,8 +1311,9 @@ Invoke-RestMethod -Method Get `
       }
       document.getElementById("todoSort").onchange = renderTodos;
       function updateTodoCount() {
-        const all = todos.length,
-          done = todos.filter((x) => x.done).length;
+        const counted = todos.filter((x) => x.status !== "cancelled"),
+          all = counted.length,
+          done = counted.filter((x) => x.status === "done" || x.done).length;
         document.getElementById("todoCount").textContent = done + " / " + all;
         const pct = all ? Math.round((done / all) * 100) : 0;
         document.getElementById("progressNumber").textContent = pct + "%";
@@ -1280,8 +1339,12 @@ Invoke-RestMethod -Method Get `
       }
       async function loadTodosForProject(projectId) {
         if (!currentUser || !projectId) return;
+        const requestId = ++todosRequestId;
         currentProjectId = projectId;
+        todos = [];
+        renderTodos();
         const { data, error } = await db.from("todos").select("*").eq("owner_id", currentUser.id).eq("project_id", projectId).order("updated_at", { ascending: false });
+        if (requestId !== todosRequestId || currentProjectId !== projectId) return;
         if (error) return toast("TODOを読み込めませんでした");
         todos = (data || []).map((item) => ({ ...item, done: item.status === "done", due: item.due_at ? item.due_at.slice(0, 10) : null }));
         renderTodos();
