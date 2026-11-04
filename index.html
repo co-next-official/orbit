@@ -1012,9 +1012,16 @@
             <article class="panel">
               <h2>AIエージェント連携</h2>
               <p style="color: var(--muted)">
-                API連携はプロジェクト詳細から段階的に追加予定です。
+                APIキーを発行すると、CodexやClaude CodeからTODO・進捗を更新できます。
               </p>
-              <button class="primary">API設定を開く</button>
+              <label>キーの名前</label>
+              <input id="agentTokenName" placeholder="例：Claude Code" style="max-width:360px;width:100%;border:1px solid var(--line);padding:10px;border-radius:8px;font:inherit" />
+              <div style="margin-top:14px"><button class="primary" id="issueToken">＋ APIキーを発行</button></div>
+              <div id="issuedToken" style="display:none;margin-top:18px;background:#f5f7fa;border:1px solid var(--line);border-radius:10px;padding:14px">
+                <b style="font-size:12px">このキーは一度しか表示されません</b>
+                <code id="tokenValue" style="display:block;word-break:break-all;margin:10px 0;color:var(--navy)"></code>
+                <button class="top-btn" id="copyToken">コピー</button>
+              </div>
             </article>
           </section>
         </div>
@@ -1214,6 +1221,25 @@
         });
         if (error) toast("Googleログイン設定を確認してください");
       }
+      async function issueAgentToken() {
+        if (!currentUser) return toast("先にGoogleでログインしてください");
+        const name = document.getElementById("agentTokenName").value.trim() || "Agent";
+        const bytes = new Uint8Array(24);
+        crypto.getRandomValues(bytes);
+        const raw = "orbit_live_" + [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+        const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw));
+        const tokenHash = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+        const { error } = await db.from("agent_tokens").insert({ owner_id: currentUser.id, name, token_hash: tokenHash, scopes: ["read", "write"] });
+        if (error) return toast("DBマイグレーション適用後に発行できます");
+        document.getElementById("tokenValue").textContent = raw;
+        document.getElementById("issuedToken").style.display = "block";
+        toast("APIキーを発行しました");
+      }
+      document.getElementById("issueToken").onclick = issueAgentToken;
+      document.getElementById("copyToken").onclick = async () => {
+        await navigator.clipboard.writeText(document.getElementById("tokenValue").textContent);
+        toast("APIキーをコピーしました");
+      };
       async function bootAuth() {
         await loadTodos();
       }
