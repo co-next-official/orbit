@@ -1,0 +1,144 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Orbit Project API",
+    "version": "1.0.0",
+    "description": "プロジェクト、TODO、進捗、活動ログを管理するOrbit API。"
+  },
+  "servers": [
+    {
+      "url": "https://peaoudxbyrbwmukedpmk.supabase.co/functions/v1/agent-api"
+    }
+  ],
+  "security": [{ "orbitToken": [] }],
+  "components": {
+    "securitySchemes": {
+      "orbitToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Orbit API token"
+      }
+    },
+    "schemas": {
+      "Project": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "status": { "type": "string", "enum": ["planning", "active", "paused", "completed", "archived"] },
+          "progress": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Todo": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "project_id": { "type": "string", "format": "uuid" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "status": { "type": "string", "enum": ["todo", "in_progress", "done", "cancelled"] },
+          "priority": { "type": "string", "enum": ["low", "normal", "high", "urgent"] },
+          "due_at": { "type": "string", "format": "date-time", "nullable": true },
+          "created_by": { "type": "string", "enum": ["human", "codex", "claude", "api"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ProjectCreate": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "status": { "type": "string", "enum": ["planning", "active", "paused", "completed", "archived"] },
+          "progress": { "type": "integer", "minimum": 0, "maximum": 100 }
+        }
+      },
+      "ProjectUpdate": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "status": { "type": "string", "enum": ["planning", "active", "paused", "completed", "archived"] },
+          "progress": { "type": "integer", "minimum": 0, "maximum": 100 }
+        }
+      },
+      "TodoCreate": {
+        "type": "object",
+        "required": ["title"],
+        "properties": {
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "status": { "type": "string", "enum": ["todo", "in_progress", "done", "cancelled"] },
+          "priority": { "type": "string", "enum": ["low", "normal", "high", "urgent"] },
+          "due_at": { "type": "string", "format": "date-time", "nullable": true },
+          "created_by": { "type": "string", "enum": ["codex", "claude", "api", "human"] }
+        }
+      },
+      "TodoUpdate": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "status": { "type": "string", "enum": ["todo", "in_progress", "done", "cancelled"] },
+          "priority": { "type": "string", "enum": ["low", "normal", "high", "urgent"] },
+          "due_at": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/projects": {
+      "get": {
+        "operationId": "listProjects",
+        "summary": "プロジェクト一覧を取得",
+        "responses": { "200": { "description": "プロジェクト一覧", "content": { "application/json": { "schema": { "type": "object", "properties": { "projects": { "type": "array", "items": { "$ref": "#/components/schemas/Project" } } } } } } } }
+      },
+      "post": {
+        "operationId": "createProject",
+        "summary": "プロジェクトを作成",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProjectCreate" } } } },
+        "responses": { "201": { "description": "作成されたプロジェクト", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Project" } } } } }
+      }
+    },
+    "/{project_id}": {
+      "get": {
+        "operationId": "getProject",
+        "summary": "プロジェクト詳細・TODO・活動ログを取得",
+        "parameters": [{ "name": "project_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": { "200": { "description": "プロジェクト詳細" } }
+      },
+      "patch": {
+        "operationId": "updateProject",
+        "summary": "プロジェクトの進捗や状態を更新",
+        "parameters": [{ "name": "project_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProjectUpdate" } } } },
+        "responses": { "200": { "description": "更新されたプロジェクト", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Project" } } } } }
+      }
+    },
+    "/{project_id}/todos": {
+      "post": {
+        "operationId": "createTodo",
+        "summary": "TODOを追加",
+        "parameters": [{ "name": "project_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TodoCreate" } } } },
+        "responses": { "201": { "description": "作成されたTODO", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Todo" } } } } }
+      }
+    },
+    "/{project_id}/todos/{todo_id}": {
+      "patch": {
+        "operationId": "updateTodo",
+        "summary": "TODOを更新・完了",
+        "parameters": [
+          { "name": "project_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "todo_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TodoUpdate" } } } },
+        "responses": { "200": { "description": "更新されたTODO", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Todo" } } } } }
+      }
+    }
+  }
+}
