@@ -126,6 +126,29 @@
           "metadata": { "type": "object" }
         }
       },
+      "TodoExternalLink": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "todo_id": { "type": "string", "format": "uuid" },
+          "project_id": { "type": "string", "format": "uuid" },
+          "provider": { "type": "string", "enum": ["github"] },
+          "external_id": { "type": "string", "example": "co-next-official/orbit#12" },
+          "url": { "type": "string", "format": "uri" },
+          "status": { "type": "string", "enum": ["open", "closed", "unknown"] },
+          "metadata": { "type": "object" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "TodoExternalLinkCreate": {
+        "type": "object",
+        "required": ["provider", "url"],
+        "properties": {
+          "provider": { "type": "string", "enum": ["github"] },
+          "url": { "type": "string", "format": "uri" }
+        }
+      },
       "ProjectDetail": {
         "type": "object",
         "properties": {
@@ -200,6 +223,27 @@
         ],
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TodoUpdate" } } } },
         "responses": { "200": { "description": "更新されたTODO", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Todo" } } } } }
+      }
+    },
+    "/{project_id}/todos/{todo_id}/links": {
+      "get": {
+        "operationId": "listTodoExternalLinks",
+        "summary": "TODOに紐づく外部リンクを取得",
+        "parameters": [
+          { "name": "project_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "todo_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": { "200": { "description": "外部リンク一覧", "content": { "application/json": { "schema": { "type": "object", "properties": { "links": { "type": "array", "items": { "$ref": "#/components/schemas/TodoExternalLink" } } } } } } } }
+      },
+      "post": {
+        "operationId": "linkTodoGithubIssue",
+        "summary": "TODOにGitHub Issueを紐づける",
+        "parameters": [
+          { "name": "project_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "todo_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TodoExternalLinkCreate" } } } },
+        "responses": { "201": { "description": "連携されたIssue", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TodoExternalLink" } } } } }
       }
     }
   }
