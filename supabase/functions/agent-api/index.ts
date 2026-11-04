@@ -94,13 +94,42 @@ Deno.serve(async (req) => {
   if (!token.scopes.includes(req.method === "GET" ? "read" : "write")) return json({ error: "scope_forbidden" }, 403);
 
   if (req.method === "GET" && parts.length === 1) {
-    const [project, todos, activity] = await Promise.all([
+    const [project, todos, activity, resources] = await Promise.all([
       supabase.from("projects").select("*").eq("id", projectId).eq("owner_id", token.owner_id).single(),
       supabase.from("todos").select("*").eq("project_id", projectId).eq("owner_id", token.owner_id).order("updated_at", { ascending: false }),
       supabase.from("activity_logs").select("*").eq("project_id", projectId).eq("owner_id", token.owner_id).order("created_at", { ascending: false }).limit(30),
+      supabase.from("project_resources").select("*").eq("project_id", projectId).eq("owner_id", token.owner_id).order("updated_at", { ascending: false }),
     ]);
     if (project.error) return json({ error: "project_not_found" }, 404);
-    return json({ project: project.data, todos: todos.data ?? [], activity: activity.data ?? [] });
+    return json({ project: project.data, todos: todos.data ?? [], activity: activity.data ?? [], resources: resources.data ?? [] });
+  }
+
+  if (req.method === "GET" && parts.length === 2 && parts[1] === "resources") {
+    const project = await getOwnedProject(projectId, token.owner_id);
+    if (project.error || !project.data) return json({ error: "project_not_found" }, 404);
+    const { data, error } = await supabase.from("project_resources").select("*").eq("project_id", projectId).eq("owner_id", token.owner_id).order("updated_at", { ascending: false });
+    if (error) return json({ error: error.message }, 400);
+    return json({ resources: data ?? [] });
+  }
+
+  if (req.method === "POST" && parts.length === 2 && parts[1] === "resources") {
+    const project = await getOwnedProject(projectId, token.owner_id);
+    if (project.error || !project.data) return json({ error: "project_not_found" }, 404);
+    const parsed = await readJson(req);
+    if (parsed.error) return parsed.error;
+    const body = parsed.body!;
+    if (body.provider !== "github" || body.resource_type !== "repository") return json({ error: "unsupported_resource" }, 400);
+    if (typeof body.url !== "string") return json({ error: "url_required" }, 400);
+    let parsedUrl: URL;
+    try { parsedUrl = new URL(body.url); } catch { return json({ error: "invalid_url" }, 400); }
+    const path = parsedUrl.pathname.split("/").filter(Boolean);
+    if (parsedUrl.hostname !== "github.com" || path.length < 2 || !/^[A-Za-z0-9_.-]+$/.test(path[0]) || !/^[A-Za-z0-9_.-]+$/.test(path[1].replace(/\.git$/, ""))) return json({ error: "invalid_github_repository_url" }, 400);
+    const externalId = `${path[0]}/${path[1].replace(/\.git$/, "")}`;
+    const canonicalUrl = `https://github.com/${externalId}`;
+    const { data, error } = await supabase.from("project_resources").upsert({ project_id: projectId, owner_id: token.owner_id, provider: "github", resource_type: "repository", external_id: externalId, url: canonicalUrl, name: typeof body.name === "string" ? body.name.trim() : externalId, metadata: body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata) ? body.metadata : {} }, { onConflict: "project_id,provider,resource_type,external_id" }).select().single();
+    if (error) return json({ error: error.message }, 400);
+    const activityError = await writeActivity(projectId, token.owner_id, "resource.connected", `GitHubリポジトリ「${externalId}」を連携`, { provider: "github", resource_type: "repository", external_id: externalId, source: "agent-api" });
+    return json(activityError ? { ...data, activity_log_warning: activityError } : data, 201);
   }
 
   if (req.method === "POST" && parts.length === 2 && parts[1] === "todos") {
