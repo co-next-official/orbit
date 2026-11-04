@@ -36,8 +36,9 @@ Deno.serve(async (req) => {
   const token = await authenticate(req);
   if (!token) return json({ error: "unauthorized" }, 401);
   const url = new URL(req.url);
-  const parts = url.pathname.split("/").filter(Boolean);
-  const projectId = parts[1];
+  const pathParts = url.pathname.split("/").filter(Boolean);
+  const parts = pathParts[0] === "agent-api" ? pathParts.slice(1) : pathParts;
+  const projectId = parts[0];
   if (token.project_id && token.project_id !== projectId) return json({ error: "project_forbidden" }, 403);
   if (!token.scopes.includes(req.method === "GET" ? "read" : "write")) return json({ error: "scope_forbidden" }, 403);
 
