@@ -223,6 +223,18 @@
         border-color: var(--navy);
         color: white;
       }
+      .filter-count { opacity: .7; margin-left: 3px; }
+      .project-card.is-hidden { display: none; }
+      .project-actions { display:flex; gap:7px; margin-left:auto; }
+      .project-actions button { border:1px solid var(--line); background:#fff; border-radius:7px; padding:6px 9px; color:var(--muted); font-size:11px; }
+      .project-actions button:hover { border-color:#aebdce; color:var(--ink); }
+      .select { border:1px solid var(--line); background:#fff; border-radius:8px; padding:8px 10px; color:var(--ink); font:inherit; font-size:12px; }
+      .toolbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; }
+      .api-example { background:#172236; color:#e9f0fa; border-radius:10px; padding:13px; font:11px/1.55 ui-monospace,SFMono-Regular,monospace; overflow:auto; white-space:pre-wrap; }
+      .token-row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--line); font-size:12px; }
+      .token-row:last-child { border-bottom:0; }
+      .token-row small { display:block; color:var(--muted); margin-top:3px; }
+      .muted-empty { color:var(--muted); font-size:12px; padding:12px 0; }
       .projects {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -743,14 +755,15 @@
                 <p>今やっていることを、ひとつずつ前へ。</p>
               </div>
             </div>
-            <div class="filters">
-              <button class="filter active">すべて 4</button
-              ><button class="filter">進行中 2</button
-              ><button class="filter">計画中 1</button
-              ><button class="filter">保留 1</button>
+            <div class="filters" id="projectFilters">
+              <button class="filter active" data-filter="all">すべて <span class="filter-count">4</span></button
+              ><button class="filter" data-filter="active">進行中 <span class="filter-count">2</span></button
+              ><button class="filter" data-filter="planning">計画中 <span class="filter-count">1</span></button
+              ><button class="filter" data-filter="paused">保留 <span class="filter-count">1</span></button
+              ><button class="filter" data-filter="archived">アーカイブ <span class="filter-count">0</span></button>
             </div>
             <div class="projects">
-              <article class="project-card featured" data-project="orbit">
+              <article class="project-card featured" data-project="orbit" data-status="active">
                 <div class="project-top">
                   <div class="project-icon blue">
                     <svg viewBox="0 0 24 24">
@@ -776,7 +789,7 @@
                   <span>更新 12分前</span><span>タスク 4 / 7</span>
                 </div>
               </article>
-              <article class="project-card">
+              <article class="project-card" data-status="planning">
                 <div class="project-top">
                   <div class="project-icon orange">
                     <svg viewBox="0 0 24 24">
@@ -793,7 +806,7 @@
                   <i style="width: 24%; background: var(--orange)"></i>
                 </div>
               </article>
-              <article class="project-card">
+              <article class="project-card" data-status="planning">
                 <div class="project-top">
                   <div class="project-icon green">
                     <svg viewBox="0 0 24 24">
@@ -813,7 +826,7 @@
                   <i style="width: 12%; background: var(--green)"></i>
                 </div>
               </article>
-              <article class="project-card">
+              <article class="project-card" data-status="paused">
                 <div class="project-top">
                   <div class="project-icon purple">
                     <svg viewBox="0 0 24 24">
@@ -844,6 +857,7 @@
                 <h1>Orbit MVP</h1>
                 <p>やりたいことと、今やっていることをつなぐ。</p>
               </div>
+              <div class="project-actions"><button id="archiveProject">アーカイブ</button><button id="deleteProject">削除</button></div>
             </div>
             <div class="detail-grid">
               <article class="panel">
@@ -856,13 +870,13 @@
                   "
                 >
                   <h2 style="margin-bottom: 0">現在の進捗</h2>
-                  <button
+                  <div style="display:flex;gap:7px;align-items:center"><select class="select" id="todoSort"><option value="default">並び順</option><option value="priority">優先度</option><option value="due">期限</option><option value="done">未完了を先に</option></select><button
                     class="primary"
                     id="addTodo"
                     style="padding: 7px 10px; font-size: 12px"
                   >
                     ＋ TODO
-                  </button>
+                  </button></div>
                 </div>
                 <div class="big-progress" style="margin-top: 18px">
                   <b id="progressNumber">68%</b><span>最終更新 12分前</span>
@@ -932,7 +946,8 @@
                 <p>いつかやりたいことをプロジェクトに変える。</p>
               </div>
             </div>
-            <div class="table-list">
+            <div class="toolbar"><span style="color:var(--muted);font-size:12px">思いついたテーマを置いておく場所</span><button class="primary" id="addGoal" style="padding:8px 11px;font-size:12px">＋ やりたいこと</button></div>
+            <div class="table-list" id="goalList">
               <div class="list-row">
                 <div class="list-left">
                   <div
@@ -976,6 +991,7 @@
               </div>
             </div>
             <article class="panel">
+              <div class="toolbar"><h2 style="margin:0">すべての活動</h2><select class="select" id="activityProjectFilter"><option value="">すべてのプロジェクト</option></select></div>
               <div class="activity">
                 <div class="activity-row">
                   <i class="activity-dot"></i>
@@ -1022,6 +1038,14 @@
                 <code id="tokenValue" style="display:block;word-break:break-all;margin:10px 0;color:var(--navy)"></code>
                 <button class="top-btn" id="copyToken">コピー</button>
               </div>
+              <h2 style="margin-top:28px">発行済みのキー</h2>
+              <div id="tokenList" class="muted-empty">読み込み中…</div>
+              <h2 style="margin-top:28px">API利用例</h2>
+              <div class="api-example">$headers = @{ Authorization = "Bearer &lt;ORBIT_TOKEN&gt;" }
+Invoke-RestMethod -Method Get `
+  -Uri "$env:ORBIT_API/functions/v1/agent-api/projects" `
+  -Headers $headers</div>
+              <button class="top-btn" id="copyApiExample" style="margin-top:10px">サンプルをコピー</button>
             </article>
           </section>
         </div>
@@ -1035,19 +1059,21 @@
         ><input
           id="projectInput"
           placeholder="例：自分のサービスを作る"
-        /><label>説明（任意）</label><input placeholder="何を実現したいか" />
+        /><label>説明（任意）</label><input id="projectDescription" placeholder="何を実現したいか" />
         <div class="modal-actions">
           <button class="ghost" id="cancel">キャンセル</button
           ><button class="primary" id="save">追加する</button>
         </div>
       </div>
     </div>
+    <div class="modal" id="goalModal"><div class="modal-box"><h2>やりたいことを追加</h2><p>まだプロジェクトにしないアイデアを保存する。</p><label>タイトル</label><input id="goalInput" placeholder="例：AIに自分のメールアドレスを持たせる" /><div class="modal-actions"><button class="ghost" id="goalCancel">キャンセル</button><button class="primary" id="goalSave">追加する</button></div></div></div>
     <div class="modal" id="todoModal">
       <div class="modal-box">
         <h2>TODOを追加</h2>
         <p>このプロジェクトで次に進めることを登録する。</p>
         <label>TODO</label
         ><input id="todoInput" placeholder="例：認証方式を決める" />
+        <label>期限（任意）</label><input id="todoDue" type="date" />
         <div class="modal-actions">
           <button class="ghost" id="todoCancel">キャンセル</button
           ><button class="primary" id="todoSave">追加する</button>
@@ -1071,6 +1097,7 @@
       };
       const views = [...document.querySelectorAll(".view")];
       let currentUser = null;
+      let currentProjectId = null;
       let todos = [
         { title: "Today画面の基本レイアウト", done: true },
         { title: "プロジェクト構造を決める", done: true },
@@ -1089,9 +1116,42 @@
       document
         .querySelectorAll("[data-view]")
         .forEach((b) => (b.onclick = () => show(b.dataset.view)));
-      document.querySelector(".project-card.featured").onclick = () =>
+      document.querySelectorAll(".project-card[data-status]").forEach((card) => {
+        card.onclick = () => openProjectCard(card);
+      });
+      function openProjectCard(card) {
+        currentProjectId = card.dataset.projectId || null;
+        const name = card.querySelector("h2")?.textContent || "Orbit MVP";
+        const description = card.querySelector("p")?.textContent || "";
+        document.querySelector(".detail-title h1").textContent = name;
+        document.querySelector(".detail-title p").textContent = description;
         show("detail");
+      }
+      document.querySelectorAll("#projectFilters .filter").forEach((button) => {
+        button.onclick = () => {
+          document.querySelectorAll("#projectFilters .filter").forEach((b) => b.classList.remove("active"));
+          button.classList.add("active");
+          const filter = button.dataset.filter;
+          document.querySelectorAll(".project-card[data-status]").forEach((card) => card.classList.toggle("is-hidden", filter !== "all" && card.dataset.status !== filter));
+        };
+      });
       document.getElementById("back").onclick = () => show("projects");
+      document.getElementById("archiveProject").onclick = async () => {
+        if (!currentUser) return toast("ログインが必要です");
+        const { error } = await db.from("projects").update({ status: "archived" }).eq("owner_id", currentUser.id).eq("name", "Orbit MVP");
+        if (error) return toast("アーカイブに失敗しました");
+        toast("プロジェクトをアーカイブしました");
+        document.querySelector('.project-card[data-project="orbit"]').dataset.status = "archived";
+        show("projects");
+      };
+      document.getElementById("deleteProject").onclick = async () => {
+        if (!currentUser || !confirm("Orbit MVPを削除しますか？TODOと活動ログも削除されます。")) return;
+        const { error } = await db.from("projects").delete().eq("owner_id", currentUser.id).eq("name", "Orbit MVP");
+        if (error) return toast("削除に失敗しました");
+        document.querySelector('.project-card[data-project="orbit"]').remove();
+        toast("プロジェクトを削除しました");
+        show("projects");
+      };
       const modal = document.getElementById("modal");
       document.getElementById("addBtn").onclick = () =>
         modal.classList.add("show");
@@ -1099,12 +1159,30 @@
         modal.classList.add("show");
       document.getElementById("cancel").onclick = () =>
         modal.classList.remove("show");
-      document.getElementById("save").onclick = () => {
+      document.getElementById("save").onclick = async () => {
+        const name = document.getElementById("projectInput").value.trim();
+        const description = document.getElementById("projectDescription").value.trim();
+        if (!name) return toast("プロジェクト名を入力してください");
+        if (!currentUser) return toast("先にGoogleでログインしてください");
+        const { data, error } = await db.from("projects").insert({ owner_id: currentUser.id, name, description, status: "planning", progress: 0 }).select().single();
+        if (error) return toast("プロジェクトを保存できませんでした");
+        const card = document.createElement("article");
+        card.className = "project-card";
+        card.dataset.status = data.status;
+        card.innerHTML = `<div class="project-top"><div class="project-icon blue"><span>＋</span></div><span class="status planning">計画中</span></div><h2></h2><p></p><div class="meta"><span>更新 今</span><span>0%</span></div><div class="meter"><i style="width:0%"></i></div>`;
+        card.querySelector("h2").textContent = data.name;
+        card.querySelector("p").textContent = data.description || "説明はまだありません。";
+        card.onclick = () => show("detail");
+        document.querySelector(".empty-card").before(card);
+        document.getElementById("projectInput").value = "";
+        document.getElementById("projectDescription").value = "";
         modal.classList.remove("show");
         toast("プロジェクトを追加しました");
+        updateProjectCounts();
       };
       const todoModal = document.getElementById("todoModal"),
         todoInput = document.getElementById("todoInput"),
+        todoDue = document.getElementById("todoDue"),
         todoList = document.getElementById("todoList");
       document.getElementById("addTodo").onclick = () => {
         todoModal.classList.add("show");
@@ -1115,16 +1193,35 @@
       document.getElementById("todoSave").onclick = () => {
         const title = todoInput.value.trim();
         if (!title) return;
-        todos.push({ title, done: false });
+        todos.push({ title, done: false, due: todoDue.value || null });
         todoInput.value = "";
+        todoDue.value = "";
         todoModal.classList.remove("show");
         renderTodos();
         saveTodos();
         toast("TODOを追加しました");
       };
+      document.getElementById("addGoal").onclick = () => { document.getElementById("goalModal").classList.add("show"); document.getElementById("goalInput").focus(); };
+      document.getElementById("goalCancel").onclick = () => document.getElementById("goalModal").classList.remove("show");
+      document.getElementById("goalSave").onclick = async () => {
+        const title = document.getElementById("goalInput").value.trim();
+        if (!title) return toast("やりたいことを入力してください");
+        if (!currentUser) return toast("先にGoogleでログインしてください");
+        const { data, error } = await db.from("goals").insert({ owner_id: currentUser.id, title }).select().single();
+        if (error) return toast("保存できませんでした。DBマイグレーションを適用してください");
+        appendGoal(data);
+        document.getElementById("goalInput").value = "";
+        document.getElementById("goalModal").classList.remove("show");
+        toast("やりたいことを追加しました");
+      };
       function renderTodos() {
         todoList.innerHTML = "";
-        todos.forEach((item, index) => {
+        const sort = document.getElementById("todoSort")?.value || "default";
+        const ordered = todos.map((item, index) => ({ item, index }));
+        if (sort === "done") ordered.sort((a, b) => Number(a.item.done) - Number(b.item.done));
+        if (sort === "due") ordered.sort((a, b) => (a.item.due || "9999") .localeCompare(b.item.due || "9999"));
+        if (sort === "priority") ordered.sort((a, b) => ({ urgent: 0, high: 1, normal: 2, low: 3 }[a.item.priority || "normal"] - { urgent: 0, high: 1, normal: 2, low: 3 }[b.item.priority || "normal"]));
+        ordered.forEach(({ item, index }) => {
           const row = document.createElement("div");
           row.className = "task" + (item.done ? " done" : "");
           const button = document.createElement("button");
@@ -1138,12 +1235,13 @@
           const text = document.createElement("span");
           text.textContent = item.title;
           const meta = document.createElement("small");
-          meta.textContent = item.done ? "完了" : "未着手";
+          meta.textContent = item.done ? "完了" : (item.due ? `期限 ${item.due}` : "未着手");
           row.append(button, text, meta);
           todoList.appendChild(row);
         });
         updateTodoCount();
       }
+      document.getElementById("todoSort").onchange = renderTodos;
       function updateTodoCount() {
         const all = todos.length,
           done = todos.filter((x) => x.done).length;
@@ -1180,7 +1278,10 @@
       }
       async function loadActivity() {
         if (!currentUser) return;
-        const { data, error } = await db.from("activity_logs").select("*").eq("owner_id", currentUser.id).order("created_at", { ascending: false }).limit(50);
+        const projectId = document.getElementById("activityProjectFilter")?.value;
+        let query = db.from("activity_logs").select("*").eq("owner_id", currentUser.id).order("created_at", { ascending: false }).limit(50);
+        if (projectId) query = query.eq("project_id", projectId);
+        const { data, error } = await query;
         if (error) return;
         const target = document.querySelector("#activity .activity");
         if (!target) return;
@@ -1200,6 +1301,69 @@
           target.appendChild(row);
         });
         if (!data?.length) target.innerHTML = '<div style="color:var(--muted);font-size:12px">まだ活動ログはありません。</div>';
+      }
+      function updateProjectCounts() {
+        const cards = [...document.querySelectorAll(".project-card[data-status]")];
+        document.querySelectorAll("#projectFilters .filter").forEach((button) => {
+          const filter = button.dataset.filter;
+          const count = filter === "all" ? cards.length : cards.filter((card) => card.dataset.status === filter).length;
+          const target = button.querySelector(".filter-count");
+          if (target) target.textContent = count;
+        });
+      }
+      function appendGoal(goal) {
+        const row = document.createElement("div");
+        row.className = "list-row";
+        row.innerHTML = '<div class="list-left"><div class="project-icon orange" style="width:34px;height:34px"><span>↗</span></div><div><h3></h3><small>まだ関連プロジェクトはありません</small></div></div><span class="status planning">探索中</span>';
+        row.querySelector("h3").textContent = goal.title;
+        document.getElementById("goalList").appendChild(row);
+      }
+      async function loadGoals() {
+        if (!currentUser) return;
+        const { data, error } = await db.from("goals").select("*").eq("owner_id", currentUser.id).neq("status", "archived").order("updated_at", { ascending: false });
+        if (error || !data?.length) return;
+        const list = document.getElementById("goalList");
+        [...list.querySelectorAll(".list-row")].forEach((row) => row.remove());
+        data.forEach(appendGoal);
+      }
+      async function loadProjects() {
+        if (!currentUser) return;
+        const { data, error } = await db.from("projects").select("*").eq("owner_id", currentUser.id).order("updated_at", { ascending: false });
+        if (error || !data?.length) return;
+        const grid = document.querySelector(".projects");
+        const empty = grid.querySelector(".empty-card");
+        grid.querySelectorAll(".project-card[data-status]").forEach((card) => card.remove());
+        const colors = ["blue", "orange", "green", "purple"];
+        const statusLabel = { active: "進行中", planning: "計画中", paused: "保留", completed: "完了", archived: "アーカイブ" };
+        data.forEach((project, index) => {
+          const card = document.createElement("article"); card.className = "project-card" + (index === 0 ? " featured" : ""); card.dataset.status = project.status; card.dataset.projectId = project.id;
+          const progress = Number(project.progress || 0);
+          card.innerHTML = `<div class="project-top"><div class="project-icon ${colors[index % colors.length]}"><span>✦</span></div><span class="status ${project.status === "active" ? "active" : project.status === "paused" || project.status === "archived" ? "hold" : "planning"}"></span></div><h2></h2><p></p><div class="meta"><span>更新 ${new Date(project.updated_at).toLocaleDateString("ja-JP")}</span><span>${progress}%</span></div><div class="meter"><i style="width:${progress}%"></i></div>`;
+          card.querySelector(".status").textContent = statusLabel[project.status] || project.status;
+          card.querySelector("h2").textContent = project.name;
+          card.querySelector("p").textContent = project.description || "説明はまだありません。";
+          card.onclick = () => openProjectCard(card);
+          grid.insertBefore(card, empty);
+        });
+        updateProjectCounts();
+      }
+      async function loadTokens() {
+        if (!currentUser) return;
+        const list = document.getElementById("tokenList");
+        const { data, error } = await db.from("agent_tokens").select("id,name,last_used_at,created_at,revoked_at,expires_at").eq("owner_id", currentUser.id).order("created_at", { ascending: false });
+        if (error) return list.textContent = "キー情報を読み込めませんでした";
+        if (!data?.length) return list.textContent = "発行済みのキーはありません";
+        list.innerHTML = "";
+        data.forEach((token) => {
+          const row = document.createElement("div"); row.className = "token-row";
+          const info = document.createElement("div");
+          info.innerHTML = `<b></b><small></small>`;
+          info.querySelector("b").textContent = token.name;
+          info.querySelector("small").textContent = token.revoked_at ? "失効済み" : `発行 ${new Date(token.created_at).toLocaleDateString("ja-JP")} · 最終利用 ${token.last_used_at ? new Date(token.last_used_at).toLocaleString("ja-JP") : "未使用"}`;
+          const button = document.createElement("button"); button.className = "top-btn"; button.textContent = token.revoked_at ? "失効済み" : "失効"; button.disabled = !!token.revoked_at;
+          button.onclick = async () => { if (!confirm(`${token.name}を失効させますか？`)) return; await db.from("agent_tokens").update({ revoked_at: new Date().toISOString() }).eq("id", token.id); loadTokens(); toast("APIキーを失効しました"); };
+          row.append(info, button); list.appendChild(row);
+        });
       }
       function updateAuthUI() {
         const host = document.querySelector(".top-actions");
@@ -1258,14 +1422,27 @@
         document.getElementById("tokenValue").textContent = raw;
         document.getElementById("issuedToken").style.display = "block";
         toast("APIキーを発行しました");
+        loadTokens();
       }
       document.getElementById("issueToken").onclick = issueAgentToken;
+      document.getElementById("activityProjectFilter").onchange = loadActivity;
       document.getElementById("copyToken").onclick = async () => {
         await navigator.clipboard.writeText(document.getElementById("tokenValue").textContent);
         toast("APIキーをコピーしました");
       };
+      document.getElementById("copyApiExample").onclick = async () => {
+        await navigator.clipboard.writeText(document.querySelector(".api-example").textContent);
+        toast("APIサンプルをコピーしました");
+      };
       async function bootAuth() {
         await loadTodos();
+        updateProjectCounts();
+        loadProjects();
+        loadGoals();
+        loadTokens();
+        const filter = document.getElementById("activityProjectFilter");
+        const { data: projects } = await db.from("projects").select("id,name").eq("owner_id", currentUser.id).order("name");
+        (projects || []).forEach((project) => { const option = document.createElement("option"); option.value = project.id; option.textContent = project.name; filter.appendChild(option); });
       }
       renderTodos();
       bootAuth();
