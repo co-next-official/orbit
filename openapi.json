@@ -87,6 +87,26 @@
           "priority": { "type": "string", "enum": ["low", "normal", "high", "urgent"] },
           "due_at": { "type": "string", "format": "date-time", "nullable": true }
         }
+      },
+      "Activity": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "project_id": { "type": "string", "format": "uuid" },
+          "actor": { "type": "string" },
+          "action": { "type": "string" },
+          "message": { "type": "string" },
+          "metadata": { "type": "object" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ProjectDetail": {
+        "type": "object",
+        "properties": {
+          "project": { "$ref": "#/components/schemas/Project" },
+          "todos": { "type": "array", "items": { "$ref": "#/components/schemas/Todo" } },
+          "activity": { "type": "array", "items": { "$ref": "#/components/schemas/Activity" } }
+        }
       }
     }
   },
@@ -109,7 +129,7 @@
         "operationId": "getProject",
         "summary": "プロジェクト詳細・TODO・活動ログを取得",
         "parameters": [{ "name": "project_id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
-        "responses": { "200": { "description": "プロジェクト詳細" } }
+        "responses": { "200": { "description": "プロジェクト詳細", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProjectDetail" } } } } }
       },
       "patch": {
         "operationId": "updateProject",
