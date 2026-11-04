@@ -31,6 +31,10 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...cors, "content-type": "application/json" } });
 }
 
+async function writeActivity(projectId: string, ownerId: string, action: string, message: string, metadata: Record<string, unknown> = {}) {
+  await supabase.from("activity_logs").insert({ project_id: projectId, owner_id: ownerId, actor: "agent", action, message, metadata });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const token = await authenticate(req);
@@ -50,6 +54,7 @@ Deno.serve(async (req) => {
     if (!body.name) return json({ error: "name_required" }, 400);
     const { data, error } = await supabase.from("projects").insert({ owner_id: token.owner_id, name: body.name, description: body.description ?? "", status: body.status ?? "planning", progress: body.progress ?? 0 }).select().single();
     if (error) return json({ error: error.message }, 400);
+    await writeActivity(data.id, token.owner_id, "project.created", `プロジェクト「${data.name}」を作成`, { source: "agent-api" });
     return json(data, 201);
   }
   const projectId = parts[0];
@@ -70,6 +75,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { data, error } = await supabase.from("todos").insert({ project_id: projectId, owner_id: token.owner_id, title: body.title, description: body.description ?? "", priority: body.priority ?? "normal", created_by: body.created_by ?? "api" }).select().single();
     if (error) return json({ error: error.message }, 400);
+    await writeActivity(projectId, token.owner_id, "todo.created", `TODO「${data.title}」を追加`, { todo_id: data.id, source: "agent-api" });
     return json(data, 201);
   }
 
@@ -77,6 +83,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { data, error } = await supabase.from("todos").update(body).eq("id", parts[2]).eq("owner_id", token.owner_id).select().single();
     if (error) return json({ error: error.message }, 400);
+    await writeActivity(data.project_id, token.owner_id, "todo.updated", `TODO「${data.title}」を更新`, { todo_id: data.id, status: data.status, source: "agent-api" });
     return json(data);
   }
 
@@ -84,6 +91,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { data, error } = await supabase.from("projects").update(body).eq("id", projectId).eq("owner_id", token.owner_id).select().single();
     if (error) return json({ error: error.message }, 400);
+    await writeActivity(projectId, token.owner_id, "project.updated", `プロジェクト「${data.name}」を更新`, { progress: data.progress, status: data.status, source: "agent-api" });
     return json(data);
   }
   return json({ error: "not_found" }, 404);
