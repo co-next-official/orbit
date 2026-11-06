@@ -122,6 +122,21 @@ Deno.serve(async (req) => {
     return json({ project: project.data, todos: todos.data ?? [], activity: activity.data ?? [], resources: resources.data ?? [] });
   }
 
+  if (req.method === "POST" && parts.length === 2 && parts[1] === "activity") {
+    const project = await getOwnedProject(projectId, token.owner_id);
+    if (project.error || !project.data) return json({ error: "project_not_found" }, 404);
+    const parsed = await readJson(req);
+    if (parsed.error) return parsed.error;
+    const body = parsed.body!;
+    if (typeof body.message !== "string" || !body.message.trim()) return json({ error: "message_required" }, 400);
+    if (body.action !== undefined && (typeof body.action !== "string" || !/^[a-z0-9_.-]{1,64}$/.test(body.action))) return json({ error: "invalid_action" }, 400);
+    if (body.actor !== undefined && !["agent", "claude", "codex"].includes(String(body.actor))) return json({ error: "invalid_actor" }, 400);
+    if (body.metadata !== undefined && (!body.metadata || typeof body.metadata !== "object" || Array.isArray(body.metadata))) return json({ error: "invalid_metadata" }, 400);
+    const { data, error } = await supabase.from("activity_logs").insert({ project_id: projectId, owner_id: token.owner_id, actor: body.actor ?? "agent", action: body.action ?? "agent.note", message: body.message.trim().slice(0, 2000), metadata: { ...(body.metadata as Record<string, unknown> ?? {}), source: "agent-api" } }).select().single();
+    if (error) return json({ error: error.message }, 400);
+    return json(data, 201);
+  }
+
   if (req.method === "GET" && parts.length === 2 && parts[1] === "resources") {
     const project = await getOwnedProject(projectId, token.owner_id);
     if (project.error || !project.data) return json({ error: "project_not_found" }, 404);
