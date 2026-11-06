@@ -14,6 +14,8 @@ node orbit.mjs todo add "<title>" [--priority high]
 node orbit.mjs todo start|done|cancel|reopen <todo_id>
 node orbit.mjs progress <0-100> [--status active]
 node orbit.mjs note "<message>"
+node orbit.mjs goals                         # list goals (やりたいこと)
+node orbit.mjs goal add "<title>" [--desc "..."]
 ```
 
 Requires `ORBIT_API` and `ORBIT_TOKEN` in the environment. Folder mappings live in `~/.claude/orbit/projects.json` (kept out of the repo). Hook errors never block Claude Code; they are appended to `~/.claude/orbit/error.log`. Set `ORBIT_DRY_RUN=1` to print the SessionEnd payload instead of posting it.

@@ -13,6 +13,8 @@ Authorization: Bearer orbit_live_xxx
 ```text
 GET   /functions/v1/agent-api/projects
 POST  /functions/v1/agent-api/projects
+GET   /functions/v1/agent-api/goals
+POST  /functions/v1/agent-api/goals          { title, description? }
 GET   /functions/v1/agent-api/:project_id
 POST  /functions/v1/agent-api/:project_id/todos
 POST  /functions/v1/agent-api/:project_id/activity

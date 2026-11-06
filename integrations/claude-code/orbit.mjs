@@ -205,6 +205,16 @@ async function main() {
     for (const p of projects) console.log(`${p.id}  ${p.status.padEnd(9)} ${String(p.progress).padStart(3)}%  ${p.name}`);
     return;
   }
+  if (cmd === "goals") {
+    const { goals } = await api("GET", "/goals");
+    for (const g of goals) console.log(`${g.status.padEnd(9)} ${g.title}`);
+    return;
+  }
+  if (cmd === "goal" && rest[0] === "add" && rest[1]) {
+    const g = await api("POST", "/goals", { title: rest[1], description: flags.desc });
+    console.log(`goal added: ${g.title} (${g.id})`);
+    return;
+  }
   if (cmd === "link") {
     if (!rest[0]) throw new Error("usage: link <project_id> [--path <dir>]");
     const dir = flags.path || cwd;

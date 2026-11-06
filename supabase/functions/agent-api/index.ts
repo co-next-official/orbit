@@ -89,6 +89,24 @@ Deno.serve(async (req) => {
     const activityError = await writeActivity(data.id, token.owner_id, "project.created", `プロジェクト「${data.name}」を作成`, { source: "agent-api" });
     return json(activityError ? { ...data, activity_log_warning: activityError } : data, 201);
   }
+  if (parts[0] === "goals" && parts.length === 1 && (req.method === "GET" || req.method === "POST")) {
+    if (token.project_id) return json({ error: "project_scope_forbidden" }, 403);
+    if (req.method === "GET") {
+      if (!token.scopes.includes("read")) return json({ error: "scope_forbidden" }, 403);
+      const { data, error } = await supabase.from("goals").select("*").eq("owner_id", token.owner_id).order("updated_at", { ascending: false });
+      if (error) return json({ error: error.message }, 400);
+      return json({ goals: data ?? [] });
+    }
+    if (!token.scopes.includes("write")) return json({ error: "scope_forbidden" }, 403);
+    const parsed = await readJson(req);
+    if (parsed.error) return parsed.error;
+    const body = parsed.body!;
+    if (typeof body.title !== "string" || !body.title.trim()) return json({ error: "title_required" }, 400);
+    const { data, error } = await supabase.from("goals").insert({ owner_id: token.owner_id, title: body.title.trim(), description: typeof body.description === "string" ? body.description : "" }).select().single();
+    if (error) return json({ error: error.message }, 400);
+    return json(data, 201);
+  }
+
   const projectId = parts[0];
   if (token.project_id && token.project_id !== projectId) return json({ error: "project_forbidden" }, 403);
   if (!token.scopes.includes(req.method === "GET" ? "read" : "write")) return json({ error: "scope_forbidden" }, 403);
